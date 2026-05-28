@@ -1,0 +1,4 @@
+[console_scripts]
+sensor-discovery = sensor_monitor.cli.discovery:main
+sensor-discovery-tui = sensor_monitor.tui.discovery_tui:main
+sensor-monitor = sensor_monitor.cli.main:main
