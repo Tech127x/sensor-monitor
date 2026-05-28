@@ -177,6 +177,7 @@ class SensorDiscoveryTui(App[None]):
                     yield Button("Sanitize", id="btn_sanitize", variant="primary", disabled=True)
                     yield Button("Save changes", id="btn_save", variant="warning", disabled=True)
                     yield Button("Save & Reload", id="btn_save_reload", variant="success", disabled=True)
+                    yield Button("Quit", id="btn_quit", variant="error", disabled=True)
         yield Footer()
 
     def on_mount(self):
@@ -218,6 +219,8 @@ class SensorDiscoveryTui(App[None]):
         self.query_one("#divide_in").disabled = False
         self.query_one("#unit_in").disabled = False
         for btn_id in ["btn_reset", "btn_sanitize", "btn_save", "btn_save_reload"]:
+            self.query_one(f"#{btn_id}").disabled = False
+        for btn_id in ["btn_reset", "btn_sanitize", "btn_save", "btn_save_reload", "btn_quit"]:
             self.query_one(f"#{btn_id}").disabled = False
         self.query_one("#loading_overlay").remove()
         self.query_one("#tbl").display = True
@@ -470,6 +473,8 @@ class SensorDiscoveryTui(App[None]):
             self._save_config()
             self._reload_daemon()
             self._update_configuration_status()
+        elif bid == "btn_quit":
+            self.exit()
 
     def _save_config(self):
         selected = [st for st in self.states if st.selected]
