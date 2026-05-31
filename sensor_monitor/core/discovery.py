@@ -84,14 +84,22 @@ class SensorDiscovery:
         self.sensors: List[DiscoveredSensor] = []
 
     def discover(self) -> List[DiscoveredSensor]:
+        # Force use of subprocess (sensors -j) for consistent naming
+        # We do this by setting use_lib=False in LmSensorsSource
         sources = [
-            LmSensorsSource(use_lib=True),
+            LmSensorsSource(use_lib=True),   # will be overridden below
             NvidiaSmiSource(cache_seconds=0),
             AmdGpuSource(),
             DiskTempSource(),
             CpuSysfsSource(),
             ProcStatSource(),
         ]
+        # Override the LmSensorsSource to force subprocess (more reliable naming)
+        for src in sources:
+            if isinstance(src, LmSensorsSource):
+                src.use_lib = False
+                break
+
         all_readings: List[SensorReading] = []
         for src in sources:
             try:
@@ -219,6 +227,9 @@ class SensorDiscovery:
         if 'sensors' not in cfg:
             cfg['sensors'] = []
         variable_names = []
+        # Ensure use_libsensors is set to false in new configs to avoid naming mismatches
+        if 'use_libsensors' not in cfg:
+            cfg['use_libsensors'] = False
         for sensor, var_name, divide_by in selections:
             var_name = sanitize_variable_name(var_name)
             entry = {

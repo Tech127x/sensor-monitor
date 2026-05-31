@@ -1,7 +1,12 @@
 import os
 import yaml
-from typing import Dict, Any, List, Optional
-from ..utils.helpers import repair_misindented_yaml
+import logging
+from typing import Dict, Any, List, Optional, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..sources.base import SensorReading
+
+from ..utils.helpers import repair_misindented_yaml, normalize_hardware_key
 
 class Config:
     def __init__(self, config_file: str):
@@ -24,7 +29,7 @@ class Config:
             'enable_disk_temp': False,
             'enable_cpu_sysfs': True,
             'enable_cpu_usage': True,
-            'use_libsensors': True,
+            'use_libsensors': False,   # Changed default to False for new users
         }
         
         if not os.path.exists(self.config_file):
@@ -49,9 +54,41 @@ class Config:
                     result[key] = val
             return result
         except Exception as e:
-            import logging
             logging.error(f"Failed to load config {self.config_file}: {e}")
             return defaults
+
+    def repair_sensor_mappings(self, current_readings: List['SensorReading']) -> bool:
+        """
+        Attempt to fix sensor mappings where chip/sensor names don't match current readings.
+        Returns True if config was modified and saved.
+        """
+        # Build lookup from normalized (chip, sensor) to the actual reading
+        lookup = {normalize_hardware_key(r.chip, r.name): r for r in current_readings}
+        repaired = False
+        for entry in self.config.get('sensors', []):
+            if not isinstance(entry, dict):
+                continue
+            chip = entry.get('chip', '')
+            sensor = entry.get('sensor', '')
+            if not chip or not sensor:
+                continue
+            key = normalize_hardware_key(chip, sensor)
+            if key not in lookup:
+                # Try to match by sensor name only (case-insensitive, stripped)
+                sensor_name = sensor.strip().lower()
+                matches = [r for r in current_readings if r.name.strip().lower() == sensor_name]
+                if len(matches) == 1:
+                    # Unique match – update chip and sensor
+                    entry['chip'] = matches[0].chip
+                    entry['sensor'] = matches[0].name
+                    repaired = True
+                    logging.info(f"Repaired sensor mapping: {key} -> {normalize_hardware_key(matches[0].chip, matches[0].name)}")
+        if repaired:
+            # Write back the repaired config
+            with open(self.config_file, 'w') as f:
+                yaml.dump(self.config, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+            logging.info("Config file automatically repaired and saved.")
+        return repaired
 
     @property
     def sensor_mappings(self) -> List[Dict]:
@@ -75,7 +112,7 @@ class Config:
 
     @property
     def use_libsensors(self) -> bool:
-        return self.config.get('use_libsensors', True)
+        return self.config.get('use_libsensors', False)   # default False
 
     @property
     def enable_nvidia(self) -> bool:
