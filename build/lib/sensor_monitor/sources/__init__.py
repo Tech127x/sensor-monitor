@@ -6,3 +6,4 @@ from .amd import AmdGpuSource
 from .disk import DiskTempSource
 from .cpu_sysfs import CpuSysfsSource
 from .procstat import ProcStatSource
+from .nvme import NvmeTempSource

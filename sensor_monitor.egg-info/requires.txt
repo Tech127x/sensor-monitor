@@ -2,9 +2,6 @@ pyyaml>=5.4
 textual>=0.41
 requests>=2.25
 
-[amd]
-rocm-smi
-
 [dev]
 pytest>=7.0
 pytest-cov

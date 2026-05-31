@@ -4,9 +4,10 @@ import sys
 import os
 import signal
 import logging
+import subprocess
 from pathlib import Path
 from ..core.monitor import SensorMonitor
-from ..utils.daemon import daemonize, acquire_pidfile, release_pidfile
+from ..utils.daemon import acquire_pidfile, release_pidfile, write_pidfile
 from ..utils.logging import setup_logging
 
 DEFAULT_CONFIG_DIR = Path.home() / '.config' / 'sensor-monitor'
@@ -16,13 +17,50 @@ def get_default_config():
     DEFAULT_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     return str(DEFAULT_CONFIG_FILE)
 
-def start_daemon(config_file, foreground=False):
+def start_daemon(config_file, daemon=False):
     if not os.path.exists(config_file):
         print(f"ERROR: Config file not found: {config_file}")
         print("Run 'sensor-discovery-tui' first to configure sensors")
         sys.exit(1)
     
-    setup_logging(config_file, daemon=not foreground)
+    pidfile = os.path.join(os.path.dirname(os.path.abspath(config_file)), 'sensor_monitor.pid')
+    
+    if daemon:
+        # Launch a detached background process
+        if os.path.exists(pidfile):
+            try:
+                with open(pidfile, 'r') as f:
+                    old_pid = int(f.read().strip())
+                os.kill(old_pid, 0)
+                print(f"ERROR: Daemon already running with PID {old_pid}")
+                sys.exit(1)
+            except (ProcessLookupError, FileNotFoundError, ValueError):
+                # Stale PID file, remove it
+                try:
+                    os.unlink(pidfile)
+                except:
+                    pass
+        
+        cmd = [sys.executable, '-m', 'sensor_monitor.cli.main', 'start', '--config', config_file]
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True  # detach
+        )
+        # Give it a moment to write the PID file
+        import time
+        for _ in range(10):
+            time.sleep(0.2)
+            if os.path.exists(pidfile):
+                print(f"Started daemon (PID {proc.pid})")
+                return
+        print("Started daemon but PID file not created; check logs.")
+        return
+    
+    # Foreground mode
+    setup_logging(config_file, daemon=False)
     mon = SensorMonitor(config_file)
     
     if not mon.mappings:
@@ -32,12 +70,6 @@ def start_daemon(config_file, foreground=False):
         print("Run 'sensor-discovery-tui' to discover and configure sensors")
         sys.exit(1)
     
-    if not foreground:
-        print(f"Starting daemon with {len(mon.mappings)} sensors...")
-        print(f"Config: {config_file}")
-        daemonize()
-    
-    pidfile = os.path.join(os.path.dirname(os.path.abspath(config_file)), 'sensor_monitor.pid')
     if not acquire_pidfile(pidfile):
         logging.error("Already running")
         print("ERROR: Monitor is already running")
@@ -53,8 +85,10 @@ def start_daemon(config_file, foreground=False):
     signal.signal(signal.SIGHUP, lambda s, f: mon.reload_config())
     
     logging.info(f"Starting monitor with {len(mon.mappings)} sensors")
-    mon.run()
-    release_pidfile(pidfile)
+    try:
+        mon.run()
+    finally:
+        release_pidfile(pidfile)
 
 def stop_daemon(config_file):
     pidfile = os.path.join(os.path.dirname(os.path.abspath(config_file)), 'sensor_monitor.pid')
@@ -143,8 +177,8 @@ def main():
     
     subparsers = parser.add_subparsers(dest='command', required=True, help='Command to execute')
     
-    start_parser = subparsers.add_parser('start', help='Start the monitor daemon')
-    start_parser.add_argument('--foreground', action='store_true', help='Run in foreground')
+    start_parser = subparsers.add_parser('start', help='Start the monitor (foreground)')
+    start_parser.add_argument('--daemon', action='store_true', help='Run as background daemon')
     
     subparsers.add_parser('stop', help='Stop the monitor daemon')
     subparsers.add_parser('reload', help='Reload the monitor configuration')
@@ -159,7 +193,7 @@ def main():
         config_file = os.path.abspath(args.config)
     
     if args.command == 'start':
-        start_daemon(config_file, foreground=args.foreground)
+        start_daemon(config_file, daemon=args.daemon)
     elif args.command == 'stop':
         stop_daemon(config_file)
     elif args.command == 'reload':

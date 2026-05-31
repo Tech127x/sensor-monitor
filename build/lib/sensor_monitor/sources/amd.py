@@ -1,17 +1,27 @@
 import subprocess
 import re
+import logging
 from typing import List
 from .base import SensorSource, SensorReading
+
+logger = logging.getLogger(__name__)
+_rocm_warned = False
 
 class AmdGpuSource(SensorSource):
     def name(self) -> str:
         return "rocm-smi"
 
     def read(self) -> List[SensorReading]:
+        global _rocm_warned
         try:
             result = subprocess.run(['rocm-smi', '--showtemp', '--showpower', '--showfan', '--showuse'],
                                     capture_output=True, text=True, timeout=10)
-        except:
+        except FileNotFoundError:
+            if not _rocm_warned:
+                logger.warning("rocm-smi not found. AMD GPU monitoring disabled.")
+                _rocm_warned = True
+            return []
+        except Exception:
             return []
         if result.returncode != 0:
             return []

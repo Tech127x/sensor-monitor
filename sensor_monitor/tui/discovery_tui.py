@@ -434,7 +434,7 @@ class SensorDiscoveryTui(App[None]):
                     else:
                         st.divide_by = None
                 except:
-                    pass
+                    st.divide_by = None
             self._refresh_row(self._active_idx)
         elif event.input.id == "unit_in" and not self._suppress_unit_sync and self._active_idx is not None:
             raw = event.value.strip()

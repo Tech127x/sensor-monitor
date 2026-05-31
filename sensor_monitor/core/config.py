@@ -29,7 +29,8 @@ class Config:
             'enable_disk_temp': False,
             'enable_cpu_sysfs': True,
             'enable_cpu_usage': True,
-            'use_libsensors': False,   # Changed default to False for new users
+            'enable_nvme': True,
+            'use_libsensors': False,
         }
         
         if not os.path.exists(self.config_file):
@@ -112,7 +113,7 @@ class Config:
 
     @property
     def use_libsensors(self) -> bool:
-        return self.config.get('use_libsensors', False)   # default False
+        return self.config.get('use_libsensors', False)
 
     @property
     def enable_nvidia(self) -> bool:
@@ -133,3 +134,7 @@ class Config:
     @property
     def enable_cpu_usage(self) -> bool:
         return self.config.get('enable_cpu_usage', True)
+
+    @property
+    def enable_nvme(self) -> bool:
+        return self.config.get('enable_nvme', True)

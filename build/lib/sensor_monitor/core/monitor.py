@@ -9,6 +9,7 @@ from ..sources.amd import AmdGpuSource
 from ..sources.disk import DiskTempSource
 from ..sources.cpu_sysfs import CpuSysfsSource
 from ..sources.procstat import ProcStatSource
+from ..sources.nvme import NvmeTempSource
 from ..companion.client import CompanionClient
 from .config import Config
 from ..utils.alerts import AlertChecker
@@ -64,6 +65,8 @@ class SensorMonitor:
             sources.append(CpuSysfsSource())
         if self.config.enable_cpu_usage:
             sources.append(ProcStatSource())
+        if self.config.enable_nvme:
+            sources.append(NvmeTempSource())
         return sources
 
     def read_all(self) -> List[SensorReading]:

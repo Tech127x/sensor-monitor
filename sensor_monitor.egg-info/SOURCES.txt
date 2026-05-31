@@ -22,6 +22,7 @@ sensor_monitor/sources/cpu_sysfs.py
 sensor_monitor/sources/disk.py
 sensor_monitor/sources/lmsensors.py
 sensor_monitor/sources/nvidia.py
+sensor_monitor/sources/nvme.py
 sensor_monitor/sources/procstat.py
 sensor_monitor/tui/__init__.py
 sensor_monitor/tui/discovery_tui.py

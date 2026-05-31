@@ -21,7 +21,6 @@ dependencies = [
 ]
 [project.optional-dependencies]
 sensors = ["libsensors>=0.0.4"]
-amd = ["rocm-smi"]
 dev = ["pytest>=7.0", "pytest-cov", "black", "mypy"]
 
 [project.scripts]

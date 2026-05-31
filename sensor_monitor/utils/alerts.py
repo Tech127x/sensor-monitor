@@ -1,6 +1,7 @@
 import logging
 import subprocess
-from typing import Dict
+import shlex
+from typing import Dict, Union
 from ..sources.base import SensorReading
 from ..companion.client import CompanionClient
 
@@ -34,9 +35,20 @@ class AlertChecker:
                     val = alert_cfg.get('value', '1')
                     self.companion.set_variable(var, str(val))
                 elif action == 'command':
-                    cmd = alert_cfg.get('command')
-                    if cmd:
-                        subprocess.Popen(cmd, shell=True)
+                    cmd_raw = alert_cfg.get('command')
+                    if cmd_raw:
+                        if isinstance(cmd_raw, str):
+                            # Split safely, no shell
+                            cmd = shlex.split(cmd_raw)
+                        elif isinstance(cmd_raw, list):
+                            cmd = cmd_raw
+                        else:
+                            self.logger.error(f"Invalid command type: {type(cmd_raw)}")
+                            return
+                        try:
+                            subprocess.run(cmd, shell=False, check=False)
+                        except Exception as e:
+                            self.logger.error(f"Alert command failed: {e}")
                 else:
                     self.logger.warning(f"Alert: {reading.chip}/{reading.name} = {value_str} {condition}")
         except Exception as e:

@@ -13,8 +13,6 @@ Requires-Dist: textual>=0.41
 Requires-Dist: requests>=2.25
 Provides-Extra: sensors
 Requires-Dist: libsensors>=0.0.4; extra == "sensors"
-Provides-Extra: amd
-Requires-Dist: rocm-smi; extra == "amd"
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
