@@ -6,7 +6,7 @@ class TestNvidiaSmiSource:
     @pytest.fixture
     def source(self):
         return NvidiaSmiSource(cache_seconds=0)
-    
+
     def test_csv_line_parsing(self, source):
         mock_result = MagicMock()
         mock_result.returncode = 0
@@ -17,8 +17,8 @@ class TestNvidiaSmiSource:
         assert len(readings) == 6
         temp = [r for r in readings if r.name == 'gpu_temp'][0]
         assert temp.value == 45.0
-        assert temp.unit == '°C'
-    
+        assert temp.unit == '\u00b0C'
+
     def test_empty_output(self, source):
         mock_result = MagicMock()
         mock_result.returncode = 0
@@ -26,7 +26,7 @@ class TestNvidiaSmiSource:
         with patch('subprocess.run', return_value=mock_result):
             readings = source.read()
         assert len(readings) == 0
-    
+
     def test_n_a_values(self, source):
         mock_result = MagicMock()
         mock_result.returncode = 0

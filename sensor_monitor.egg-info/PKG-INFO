@@ -23,12 +23,10 @@ Requires-Dist: mypy; extra == "dev"
 
 Real-time hardware monitoring at your fingertips — finally, sensor data that just works.
 
-You're deep in a render, a game, or overclocking experiment. Your CPU is 
-cooking, your GPU fans are screaming, and you have no idea what's actually happening inside your case. You could open a terminal and run `sensors`, squint at the output, and try to remember which `temp1` is which. Or you could glance at your Stream Deck and see everything — CPU temp, coolant temp, fan speeds, voltages — updating live, with friendly names you actually understand.
+You're deep in a render, a game, or overclocking experiment. Your CPU is cooking, your GPU fans are screaming, and you have no idea what's actually happening inside your case. You could open a terminal and run `sensors`, squint at the output, and try to remember which `temp1` is which. Or you could glance at your Stream Deck and see everything — CPU temp, coolant temp, fan speeds, voltages — updating live, with friendly names you actually understand.
 
 Sensor Monitor fixes all of this. It discovers every sensor in your system (CPU, GPU, motherboard, NVMe drives, liquid coolers, fan controllers — yes, even that obscure Aquacomputer High Flow Next), pushes their values to Bitfocus Companion custom variables, and lets you build beautiful, informative dashboards on your Stream Deck. All with zero manual config file editing — just click what you want, and it's done.
 
----
 
 ## ✨ What Makes This Different?
 
@@ -42,7 +40,7 @@ The discovery table has two columns: **Enabled** and **Configured**. See a senso
 
 ### 🧠 Smart Defaults — Sensible From the Start
 
-Brand new sensors get a Companion-safe variable name like `temperature_coolant` or `fan_cpu_fan`. Each sensor's unit (°C, RPM, V, W, dL/h) is automatically detected and included in the Companion value format (e.g., `27.7°C`). No more manually setting formats or worrying about units. And if you want to divide a value (like converting millivolts to volts) or override the unit, the TUI gives you fields for that too.
+Brand new sensors get a Companion-safe variable name like `temperature\_coolant` or `fan\_cpu\_fan`. Each sensor's unit (°C, RPM, V, W, dL/h) is automatically detected and included in the Companion value format (e.g., `27.7°C`). No more manually setting formats or worrying about units. And if you want to divide a value (like converting millivolts to volts) or override the unit, the TUI gives you fields for that too.
 
 ### ⚡ Real-Time, Always
 
@@ -50,24 +48,28 @@ The daemon polls your sensors every second (configurable) and pushes updates to 
 
 ### 🐟 Fish-Friendly, Shell-Agnostic
 
-First-class Fish shell support with tab completions and automatic PATH configuration. But bash and zsh users are fully supported too — the pipx installer handles everything. The default config lives at `~/.config/sensor-monitor/sm_config.yaml` so you never have to think about file paths.
+First-class Fish shell support with tab completions and automatic PATH configuration. But bash and zsh users are fully supported too — the pipx installer handles everything. The default config lives at `~/.config/sensor-monitor/sm\_config.yaml` so you never have to think about file paths.
 
----
 
 ## 🚀 Quick Install
 
-```bash
-#Install system dependencies (lm-sensors is required)
+```
+\#Install system dependencies (lm-sensors is required)  
+  
+sudo pacman -S lm\_sensors python-pipx \# Arch / CachyOS  
+  
+\# or: sudo apt install lm-sensors python3-pipx \# Debian/Ubuntu  
+  
+\# Install Sensor Monitor via pipx  
+  
+pipx install --force --editable git+https://github.com/tech127x/sensor-monitor-ds.git  
+  
+\# That's it! The default config directory is auto-created.
 
-sudo pacman -S lm_sensors python-pipx # Arch / CachyOS
 
-# or: sudo apt install lm-sensors python3-pipx # Debian/Ubuntu
-
-# Install Sensor Monitor via pipx
-
-pipx install --force --editable git+https://github.com/tech127x/sensor-monitor-ds.git
-
-# That's it! The default config directory is auto-created.
+\*\*Note for AMD GPU users:\*\*  
+  
+install \`rocm-smi\` separately from your distribution (e.g., \`pacman -S rocm-smi-lib\`). Sensor Monitor will automatically detect it if present.
 ```
 
 After install, you have three commands:
@@ -78,44 +80,37 @@ After install, you have three commands:
 
 - `sensor-discovery` (optional CLI discovery)
 
----
 
 ## 🎮 Usage — So Simple You'll Forget It's Running
 
-```bash
-sensor-discovery-tui # Discover & configure sensors (TUI)
-sensor-monitor test # Test: read sensors, push to Companion once
-sensor-monitor start # Start daemon in background
-sensor-monitor status # Check if daemon is running
-sensor-monitor stop # Stop daemon
-sensor-monitor reload # Reload config without restarting
-sensor-monitor start --foreground # Run in foreground (debug output)
 ```
-
-
+sensor-discovery-tui \# Discover & configure sensors (TUI)  
+sensor-monitor test \# Test: read sensors, push to Companion once  
+sensor-monitor start –daemon \# Start daemon in background  
+sensor-monitor status \# Check if daemon is running  
+sensor-monitor stop \# Stop daemon  
+sensor-monitor reload \# Reload config without restarting  
+sensor-monitor start \# Run in foreground (for systemd / debugging)
+```
 
 Fish Shell? Add these to your config for even faster access:
 
-```fish
-alias sm="sensor-monitor"
-alias smt="sensor-discovery-tui"
+```
+alias sm="sensor-monitor"  
+alias smt="sensor-discovery-tui"  
 alias sms="sensor-monitor status"
 ```
 
 
-
----
-
 ## 🎛️ Stream Deck+ Variable Setup
 
-Sensor Monitor automatically creates Companion custom variables as you enable sensors. You just need to create matching feedback elements on your Stream Deck.
-For each sensor you enable, a variable is created with the name you chose (e.g.,`temperature_coolant`). Its value is a formatted string like `27.7°C` or `1459 RPM`.
+Sensor Monitor automatically creates Companion custom variables as you enable sensors. You just need to create matching feedback elements on your Stream Deck. For each sensor you enable, a variable is created with the name you chose (e.g.,`temperature\_coolant`). Its value is a formatted string like `27.7°C` or `1459 RPM`.
 
 **Example Stream Deck+ button setup:**
 
 1. Create a new button, set it to "Custom Variable" type
 
-2. Variable name: `temperature_coolant`
+2. Variable name: `temperature\_coolant`
 
 3. The button will display whatever the daemon pushes — e.g., `27.7°C`
 
@@ -129,13 +124,12 @@ For each sensor you enable, a variable is created with the name you chose (e.g.,
 
 All values update every second — no manual refreshing.
 
----
 
 ## 🔧 Configuration — No Text Editors Needed
 
 Run the interactive TUI:
 
-```bash
+```
 sensor-discovery-tui
 ```
 
@@ -165,9 +159,8 @@ What you'll see:
 
 3. Click **Save & Reload**
 
-All settings are stored in `~/.config/sensor-monitor/sm_config.yaml`. You can edit it manually if you prefer, but you'll rarely need to.
+All settings are stored in `~/.config/sensor-monitor/sm\_config.yaml`. You can edit it manually if you prefer, but you'll rarely need to.
 
----
 
 ## 📊 Requirements
 
@@ -179,54 +172,47 @@ All settings are stored in `~/.config/sensor-monitor/sm_config.yaml`. You can ed
 
 - Bitfocus Companion with TCP API enabled (default port 8000)
 
-- Optional: nvidia-smi for NVIDIA GPU monitoring, rocm-smi for AMD GPUs, smartctl for disk temperatures
+- Optional: nvidia-smi for NVIDIA GPU monitoring, rocm-smi for AMD GPUs, smartctl for disk temperatures, nvme-cli for NVMe drive temperatures.
 
----
 
 ## 🆘 Troubleshooting
 
-| Problem                              | Solution                                                                                                                            |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| "No sensors configured" when testing | Run `sensor-discovery-tui` and enable some sensors, then Save & Reload                                                              |
-| Daemon won't start                   | Check `sensor-monitor status` — if it says already running, `stop` first                                                            |
-| Variable not showing in Companion    | Ensure Companion's HTTP API is enabled on port 8000 and reachable. Run `sensor-monitor test` to see connection status               |
-| Sensor values missing in TUI         | Run `sensors -j` in a terminal — if it hangs, there may be a kernel driver issue. The TUI has a 30‑second timeout; adjust if needed |
-| "libsensors not available" message   | Normal — falls back to `sensors -j` subprocess which works perfectly                                                                |
-| Config file not found                | Default is `~/.config/sensor-monitor/sm_config.yaml`. Use `-c` flag to specify a custom path                                        |
+| Problem | Solution |
+| - | - |
+| "No sensors configured" when testing | Run `sensor-discovery-tui` and enable some sensors, then Save & Reload |
+| Daemon won't start | Check `sensor-monitor status` — if it says already running, `stop` first |
+| Variable not showing in Companion | Ensure Companion's HTTP API is enabled on port 8000 and reachable. Run `sensor-monitor test` to see connection status |
+| Sensor values missing in TUI | Run `sensors -j` in a terminal — if it hangs, there may be a kernel driver issue. The TUI has a 30‑second timeout; adjust if needed |
+| "libsensors not available" message | Normal — falls back to `sensors -j` subprocess which works perfectly |
+| Config file not found | Default is `~/.config/sensor-monitor/sm\_config.yaml`. Use `-c` flag to specify a custom path |
 
----
+
 
 ## 📦 Updating
 
-```bash
-pipx upgrade sensor-monitor
-
-# or if installed from git:
-
-cd ~/sensor-monitor-ds && git pull && pipx install --force --editable .
-sensor-monitor reload # tell the running daemon to pick up any changes
+```
+pipx upgrade sensor-monitor  
+  
+\# or if installed from git:  
+  
+cd ~/sensor-monitor-ds && git pull && pipx install --force --editable .  
+sensor-monitor reload \# tell the running daemon to pick up any changes
 ```
 
-
-
----
 
 ## 🗑️ Uninstall
 
-```bash
-sensor-monitor stop
-pipx uninstall sensor-monitor
+```
+sensor-monitor stop  
+pipx uninstall sensor-monitor  
 rm -rf ~/.config/sensor-monitor
 ```
 
-
-
----
 
 ## 📝 License
 
 MIT — use it, modify it, share it. Just give credit!
 
----
 
 **Made with ❤️ for the CachyOS community, Bitfocus Companion users, and Stream Deck enthusiasts everywhere!**
+

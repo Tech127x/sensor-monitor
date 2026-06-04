@@ -53,7 +53,7 @@ class ClickableDataTable(DataTable):
         for col_key in self.ordered_columns:
             col_width = col_key.width
             if x_offset < col_width:
-                self.post_message(self.CellClicked(row_key, col_key))
+                self.post_message(self.CellClicked(row_key.key.value, col_key.key))
                 return
             x_offset -= col_width
 
@@ -381,19 +381,18 @@ class SensorDiscoveryTui(App[None]):
     def on_clickable_data_table_cell_clicked(self, event: ClickableDataTable.CellClicked):
         if self._loading:
             return
-        column = event.column_key
-        column_key_value = column.key.value if hasattr(column, 'key') else str(column.label)
-        row = event.row_key
-        row_key_value = row.key.value if hasattr(row, 'key') else str(row.label)
+        column_key_value = event.column_key
+        row_key_value = event.row_key
         if column_key_value == COL_ENABLED:
             stable_id = int(row_key_value)
             for i, st in enumerate(self.states):
                 if st.stable_id == stable_id:
                     table = self.query_one("#tbl", ClickableDataTable)
                     try:
-                        row_index = table.ordered_rows.index(event.row_key)
+                        row_key_obj = next(rk for rk in table.ordered_rows if rk.key.value == row_key_value)
+                        row_index = table.ordered_rows.index(row_key_obj)
                         table.move_cursor(row=row_index)
-                    except ValueError:
+                    except (StopIteration, ValueError):
                         pass
                     self._toggle_sensor(i)
                     break

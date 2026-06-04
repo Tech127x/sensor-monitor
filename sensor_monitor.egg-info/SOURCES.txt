@@ -1,6 +1,7 @@
 README.md
 pyproject.toml
 sensor_monitor/__init__.py
+sensor_monitor/__main__.py
 sensor_monitor.egg-info/PKG-INFO
 sensor_monitor.egg-info/SOURCES.txt
 sensor_monitor.egg-info/dependency_links.txt
@@ -32,4 +33,11 @@ sensor_monitor/utils/config.py
 sensor_monitor/utils/daemon.py
 sensor_monitor/utils/helpers.py
 sensor_monitor/utils/logging.py
+tests/test_alerts.py
+tests/test_companion.py
+tests/test_config.py
+tests/test_discovery.py
+tests/test_helpers.py
+tests/test_monitor.py
 tests/test_parsers.py
+tests/test_sources.py

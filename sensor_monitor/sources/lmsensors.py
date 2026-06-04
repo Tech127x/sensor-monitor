@@ -122,8 +122,8 @@ class LmSensorsSource(SensorSource):
             if not isinstance(adata, dict):
                 continue
             chip = adapter
-            for group, gdata in adata.items():
-                if group == 'Adapter' or not isinstance(gdata, dict):
+            for group_name, gdata in adata.items():
+                if group_name == 'Adapter' or not isinstance(gdata, dict):
                     continue
                 if not gdata:
                     continue
@@ -131,6 +131,12 @@ class LmSensorsSource(SensorSource):
                 for key, val in gdata.items():
                     if key.startswith('_'):
                         continue
+                    
+                    # Use the feature key as the sensor name (e.g., "temp1", "fan1")
+                    # Strip _input suffix to get the base feature name
+                    feature_name = key
+                    if key.endswith('_input'):
+                        feature_name = key[:-6]  # remove '_input'
                     
                     is_reading = False
                     if '_input' in key or key.endswith('_input'):
@@ -170,10 +176,10 @@ class LmSensorsSource(SensorSource):
                         else:
                             continue
                         
-                        unit = get_unit(group, chip)
+                        unit = get_unit(feature_name, chip)
                         category = get_category(unit)
                         readings.append(SensorReading(
-                            chip=chip, name=group, value=value, unit=unit, category=category
+                            chip=chip, name=feature_name, value=value, unit=unit, category=category
                         ))
                     except (ValueError, TypeError):
                         continue

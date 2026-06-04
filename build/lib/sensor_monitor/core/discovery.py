@@ -2,6 +2,7 @@
 import os
 import sys
 import re
+import logging
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional, Set
 
@@ -247,8 +248,8 @@ class SensorDiscovery:
             with open(config_file, 'w') as f:
                 yaml.dump(cfg, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
             return True, variable_names
-        except Exception as e:
-            print(f"Error writing config: {e}", file=sys.stderr)
+        except (OSError, yaml.YAMLError) as e:
+            logging.error(f"Error writing config: {e}")
             return False, []
 
     def remove_sensors_from_config(self, hardware_keys: Set[Tuple[str, str]],
@@ -276,6 +277,6 @@ class SensorDiscovery:
             with open(config_file, 'w') as f:
                 yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
             return True, removed
-        except Exception as e:
-            print(f"Error removing sensors: {e}", file=sys.stderr)
+        except (OSError, yaml.YAMLError) as e:
+            logging.error(f"Error removing sensors: {e}")
             return False, 0

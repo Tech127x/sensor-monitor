@@ -37,8 +37,8 @@ class SensorMonitor:
         self.mappings = self.config.sensor_mappings
         self.prefix = self.config.monitoring.get('variable_prefix', '')
         self.suffix = self.config.monitoring.get('variable_suffix', '')
-        self.update_interval = self.config.monitoring['update_interval']
-        self.max_errors = self.config.monitoring['max_errors']
+        self.update_interval = self.config.monitoring.get('update_interval', 1)
+        self.max_errors = self.config.monitoring.get('max_errors', 5)
         self.running = False
         self.error_count = 0
 
@@ -134,8 +134,8 @@ class SensorMonitor:
         self.mappings = self.config.sensor_mappings
         self.prefix = self.config.monitoring.get('variable_prefix', '')
         self.suffix = self.config.monitoring.get('variable_suffix', '')
-        self.update_interval = self.config.monitoring['update_interval']
-        self.max_errors = self.config.monitoring['max_errors']
+        self.update_interval = self.config.monitoring.get('update_interval', 1)
+        self.max_errors = self.config.monitoring.get('max_errors', 5)
         self.alert_checker = AlertChecker(self.config.alerts, self.companion)
         # Re-validate sensor mappings after reload
         readings = self.read_all()

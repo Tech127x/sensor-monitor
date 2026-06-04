@@ -16,8 +16,12 @@ class ProcStatSource(SensorSource):
             return self._last_readings
         if self._prev is None:
             self._prev = curr
-            time.sleep(0.05)
-            curr = self._parse()
+            # Retry up to 5 times with increasing sleep to get a measurable delta
+            for attempt in range(5):
+                time.sleep(0.05 * (attempt + 1))
+                curr = self._parse()
+                if curr and self._compute_usage(self._prev, curr):
+                    break
             if not curr:
                 return self._last_readings
         pcts = self._compute_usage(self._prev, curr)

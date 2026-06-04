@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 """Sensor discovery terminal UI (Textual)."""
+
 from __future__ import annotations
 
-import sys
 import logging
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Button, DataTable, Footer, Header, Input, Static, Label
-from textual import events
+from textual.widgets import Button, DataTable, Footer, Header, Input, Static
+from textual.widgets._data_table import ColumnKey as _ColumnKey
 
 from sensor_monitor.core.discovery import SensorDiscovery
-from sensor_monitor.utils.helpers import sanitize_variable_name, normalize_hardware_key
+from sensor_monitor.utils.helpers import normalize_hardware_key, sanitize_variable_name
 
 logger = logging.getLogger(__name__)
 
@@ -29,37 +31,46 @@ COL_CHIP = "chip"
 COL_SENSOR = "sensor"
 COL_LABEL = "label"
 
+
 def _trunc(s: str, w: int) -> str:
     if len(s) <= w:
         return s
-    return s[:max(1, w-1)] + "…"
+    return s[: max(1, w - 1)] + "…"
+
 
 class ClickableDataTable(DataTable):
-    class CellClicked(events.Event, bubble=True):
+    class CellClicked(events.Event):
         def __init__(self, row_key, column_key):
             super().__init__()
             self.row_key = row_key
             self.column_key = column_key
-    
-    def _on_click(self, event: events.Click) -> None:
-        if not self.ordered_rows:
+
+    async def _on_click(self, event: events.Click) -> None:
+        meta = event.style.meta
+        if "row" not in meta or "column" not in meta:
             return
-        header_height = 1 if self.show_header else 0
-        y_offset = event.y - header_height
-        if y_offset < 0 or y_offset >= len(self.ordered_rows):
+        row_index = meta["row"]
+        column_index = meta["column"]
+        if row_index < 0 or row_index >= len(self.ordered_rows):
             return
-        row_key = self.ordered_rows[y_offset]
-        x_offset = event.x
-        for col_key in self.ordered_columns:
-            col_width = col_key.width
-            if x_offset < col_width:
-                self.post_message(self.CellClicked(row_key, col_key))
-                return
-            x_offset -= col_width
+        if column_index < 0 or column_index >= len(self.ordered_columns):
+            return
+        row_key = self.ordered_rows[row_index].key.value
+        col_key = self.ordered_columns[column_index].key
+        self.post_message(self.CellClicked(row_key, col_key))
+
 
 class RowState:
-    def __init__(self, stable_id: int, sensor, default_var: str, in_config: bool,
-                 variable: str = None, divide_by: int = None, custom_unit: str = None):
+    def __init__(
+        self,
+        stable_id: int,
+        sensor,
+        default_var: str,
+        in_config: bool,
+        variable: str = "",
+        divide_by: int | None = 0,
+        custom_unit: str | None = "",
+    ):
         self.stable_id = stable_id
         self.sensor = sensor
         self.default_var = default_var
@@ -68,10 +79,15 @@ class RowState:
         self.variable = variable or default_var
         self.divide_by = divide_by
         self.custom_unit = custom_unit
+        self.unit_cleared = False
 
     @property
     def display_unit(self) -> str:
-        return self.custom_unit if self.custom_unit else self.sensor.unit
+        if self.unit_cleared:
+            return ""
+        cu = self.custom_unit
+        return cu if cu else self.sensor.unit
+
 
 class SensorDiscoveryTui(App[None]):
     TITLE = "Sensor discovery"
@@ -99,9 +115,9 @@ class SensorDiscoveryTui(App[None]):
     .field-label { width: 12; padding-right: 1; text-align: right; }
     .field-input { width: 1fr; max-width: 30; }
     #btn_row { height: 3; margin-top: 0; align-horizontal: left; }
-    #btn_row Button { margin-right: 1; }
-    #meta { margin-bottom: 1; color: $text-muted; }
-    #hints { margin-bottom: 1; color: $text-muted; }
+    #btn_row Button { margin-right: 1; min-height: 3; padding: 0 1; }
+    #meta { height: 12; color: $text; background: $surface; padding: 1 1; }
+    #hints { margin-top: 0; margin-bottom: 1; color: $text-disabled; text-style: italic; }
     """
 
     BINDINGS = [
@@ -143,41 +159,148 @@ class SensorDiscoveryTui(App[None]):
         self._loading = True
         self._loading_dots = 0
 
+    @staticmethod
+    def _make_format(st: RowState) -> str:
+        """Build the Companion format string for a sensor state.
+
+        Uses the custom_unit if set, otherwise no unit suffix.
+        The number format (decimal places) is determined by the sensor type.
+        """
+        s = st.sensor
+        if s.unit == "RPM":
+            fmt = "{value:.0f}"
+        elif s.unit == "%" and s.category == "utilization":
+            fmt = "{value:.0f}"
+        else:
+            fmt = "{value:.1f}"
+        if st.unit_cleared:
+            return fmt
+        if st.custom_unit:
+            return f"{fmt}{st.custom_unit}"
+        suffix = "" if s.unit == "%" else s.unit
+        return f"{fmt}{suffix}"
+
+    @staticmethod
+    def _build_meta_text(st: RowState) -> str:
+        """Build the full info text for the detail panel."""
+        s = st.sensor
+        if st.in_config and st.selected:
+            action = "Will be REMOVED on next save"
+        elif not st.in_config and st.selected:
+            action = "Will be ADDED on next save"
+        else:
+            action = "No pending changes"
+        enabled = "Yes" if (st.in_config or st.selected) else "No"
+        configured = "Yes" if st.in_config else "No"
+        lines = [
+            f"[bold]#{st.stable_id}  {s.simple_name}  {s.description}[/bold]",
+            f"[bold]Chip:[/bold] [#6699ff]{s.chip}[/]",
+            f"[bold]Sensor:[/bold] [#6699ff]{s.sensor_group}[/]",
+            "",
+            f"[bold]Enabled:[/bold] [#6699ff]{enabled}[/]",
+            f"[bold]Configured:[/bold] [#6699ff]{configured}[/]",
+            f"[bold]Status:[/bold] [#6699ff]{action}[/]",
+            "",
+            f"[bold]Companion variable name:[/bold] [#6699ff]{st.variable}[/]",
+        ]
+        if st.in_config or st.selected:
+            value = s.current_value
+            if st.divide_by and st.divide_by >= 2:
+                value = value / st.divide_by
+            fmt = SensorDiscoveryTui._make_format(st)
+            try:
+                formatted = fmt.format(value=value)
+            except Exception:
+                formatted = str(value)
+            lines.append(
+                f"[bold]Format of reported value:[/bold] [#6699ff]{formatted}[/]"
+            )
+        else:
+            lines.append(
+                "[bold]Format of reported value:[/bold] [#6699ff](not enabled)[/]"
+            )
+        return "\n".join(lines)
+
+    def _refresh_meta_text(self) -> None:
+        """Rebuild the meta text without touching input fields."""
+        if self._active_idx is not None:
+            st = self.states[self._active_idx]
+            self.query_one("#meta", Static).update(self._build_meta_text(st))
+
     def compose(self) -> ComposeResult:
         yield Header()
         with Vertical(id="main"):
             with Horizontal(id="filter_row"):
                 yield Static("Filter:", id="filter_label")
-                yield Input(placeholder="type to filter sensors...", id="filter_in", disabled=True)
+                yield Input(
+                    placeholder="type to filter sensors...",
+                    id="filter_in",
+                    disabled=True,
+                )
             with Vertical(id="tbl_container"):
-                yield ClickableDataTable(id="tbl", cursor_type="row", zebra_stripes=True)
+                yield ClickableDataTable(
+                    id="tbl", cursor_type="row", zebra_stripes=True
+                )
                 with Vertical(id="loading_overlay"):
                     with Vertical(id="loading_box"):
                         yield Static("🔍 Discovering Sensors", id="loading_title")
                         yield Static("Querying lm-sensors...", id="loading_message")
-                        yield Static("This may take up to 30 seconds", id="loading_subtitle")
+                        yield Static(
+                            "This may take up to 30 seconds", id="loading_subtitle"
+                        )
                         yield Static("⏳", id="loading_dots")
             with Vertical(id="detail"):
                 with Horizontal(id="detail_content"):
                     with Vertical(id="info_panel"):
                         yield Static("Select a row.", id="meta")
-                        yield Static("Click 'Enabled' to toggle. Edit fields, then Save & Reload.", id="hints")
                     with Vertical(id="edit_panel"):
                         with Horizontal(classes="field-row"):
                             yield Static("Variable name:", classes="field-label")
-                            yield Input(placeholder="Companion variable name", id="var_in", classes="field-input", disabled=True)
+                            yield Input(
+                                placeholder="Companion variable name",
+                                id="var_in",
+                                classes="field-input",
+                                disabled=True,
+                            )
                         with Horizontal(classes="field-row"):
                             yield Static("Divide by:", classes="field-label")
-                            yield Input(placeholder="e.g. 10", id="divide_in", classes="field-input", disabled=True)
+                            yield Input(
+                                placeholder="e.g. 10",
+                                id="divide_in",
+                                classes="field-input",
+                                disabled=True,
+                            )
                         with Horizontal(classes="field-row"):
                             yield Static("Unit:", classes="field-label")
-                            yield Input(placeholder="Override unit (e.g. 'C')", id="unit_in", classes="field-input", disabled=True)
+                            yield Input(
+                                placeholder="Override unit (e.g. 'C')",
+                                id="unit_in",
+                                classes="field-input",
+                                disabled=True,
+                            )
+                yield Static(
+                    "Click [b]Enabled[/b] to toggle. Edit fields, then [b]Save & Reload[/b].",
+                    id="hints",
+                )
                 with Horizontal(id="btn_row"):
-                    yield Button("Reset default", id="btn_reset", variant="default", disabled=True)
-                    yield Button("Sanitize", id="btn_sanitize", variant="primary", disabled=True)
-                    yield Button("Save changes", id="btn_save", variant="warning", disabled=True)
-                    yield Button("Save & Reload", id="btn_save_reload", variant="success", disabled=True)
-                    yield Button("Quit", id="btn_quit", variant="error", disabled=True)
+                    yield Button(
+                        "Sensor default",
+                        id="btn_reset",
+                        variant="default",
+                        disabled=True,
+                    )
+                    yield Button(
+                        "Save changes", id="btn_save", variant="success", disabled=True
+                    )
+                    yield Button(
+                        "Save & Reload",
+                        id="btn_save_reload",
+                        variant="warning",
+                        disabled=True,
+                    )
+                    yield Button(
+                        "Exit", id="btn_quit", variant="primary", disabled=True
+                    )
         yield Footer()
 
     def on_mount(self):
@@ -203,7 +326,29 @@ class SensorDiscoveryTui(App[None]):
         defaults = self.discovery.assign_default_variables(flat)
         hw_keys = self.discovery.load_config_hardware_keys(self.config_file)
         self._config_divide_map = self.discovery.load_config_divide_by(self.config_file)
-        self._config_unit_map = self.discovery.load_config_unit_overrides(self.config_file)
+        self._config_unit_map = self.discovery.load_config_unit_overrides(
+            self.config_file
+        )
+        # Migrate old config entries: extract unit suffix from format string
+        # if no explicit unit field exists
+        cfg = self.discovery._load_config(self.config_file)
+        for entry in cfg.get("sensors", []):
+            if not isinstance(entry, dict):
+                continue
+            chip = entry.get("chip")
+            sensor = entry.get("sensor")
+            fmt = entry.get("format", "")
+            if not chip or not sensor or not fmt:
+                continue
+            key = normalize_hardware_key(chip, sensor)
+            if key not in self._config_unit_map:
+                # Extract suffix from format like "{value:.1f}°C" -> "°C"
+                match = fmt.rsplit("}", 1)
+                if len(match) == 2 and match[1]:
+                    self._config_unit_map[key] = match[1]
+        self._config_var_map = self.discovery.load_config_variable_names(
+            self.config_file
+        )
         self._update_loading_message("Building display...")
         self.states = []
         for i, s in enumerate(flat):
@@ -211,16 +356,25 @@ class SensorDiscoveryTui(App[None]):
             in_c = key in hw_keys
             div = self._config_divide_map.get(key)
             unit = self._config_unit_map.get(key)
-            self.states.append(RowState(i+1, s, defaults[i], in_c, defaults[i], div, unit))
+            var = self._config_var_map.get(key, defaults[i])
+            st = RowState(i + 1, s, defaults[i], in_c, var, div, unit)
+            if in_c and unit is None:
+                st.unit_cleared = True
+            self.states.append(st)
         self._recompute_display_order()
         self._loading = False
         self.query_one("#filter_in").disabled = False
         self.query_one("#var_in").disabled = False
         self.query_one("#divide_in").disabled = False
         self.query_one("#unit_in").disabled = False
-        for btn_id in ["btn_reset", "btn_sanitize", "btn_save", "btn_save_reload"]:
+        for btn_id in ["btn_reset", "btn_save", "btn_save_reload"]:
             self.query_one(f"#{btn_id}").disabled = False
-        for btn_id in ["btn_reset", "btn_sanitize", "btn_save", "btn_save_reload", "btn_quit"]:
+        for btn_id in [
+            "btn_reset",
+            "btn_save",
+            "btn_save_reload",
+            "btn_quit",
+        ]:
             self.query_one(f"#{btn_id}").disabled = False
         self.query_one("#loading_overlay").remove()
         self.query_one("#tbl").display = True
@@ -236,7 +390,7 @@ class SensorDiscoveryTui(App[None]):
             self.call_from_thread(self._set_loading_message, message)
         except Exception:
             pass
-    
+
     def _set_loading_message(self, message: str):
         try:
             self.query_one("#loading_message", Static).update(message)
@@ -266,12 +420,22 @@ class SensorDiscoveryTui(App[None]):
     def _row_cells(self, idx: int):
         st = self.states[idx]
         s = st.sensor
-        reading = f"{s.current_value:.1f}" if s.unit != "RPM" else f"{s.current_value:.0f}"
-        enabled = "✓ Yes" if (st.in_config or st.selected) else "- No"
+        reading = (
+            f"{s.current_value:.1f}" if s.unit != "RPM" else f"{s.current_value:.0f}"
+        )
+        enabled = "✓ Yes" if (st.in_config != st.selected) else "- No"
         configured = "✓ Yes" if st.in_config else "- No"
-        return (enabled, configured, str(st.stable_id),
-                _trunc(st.variable, 40), reading, st.display_unit or "—",
-                _trunc(s.chip, 40), _trunc(s.sensor_group, 30), _trunc(s.simple_name, 30))
+        return (
+            enabled,
+            configured,
+            str(st.stable_id),
+            _trunc(st.variable, 40),
+            reading,
+            st.display_unit or "—",
+            _trunc(s.chip, 40),
+            _trunc(s.sensor_group, 30),
+            _trunc(s.simple_name, 30),
+        )
 
     def _refresh_row(self, idx: int):
         table = self.query_one("#tbl", ClickableDataTable)
@@ -310,16 +474,25 @@ class SensorDiscoveryTui(App[None]):
         indices = list(range(len(self.states)))
         ft = self.filter_text.strip().lower()
         if ft:
-            indices = [i for i in indices if (
-                ft in self.states[i].sensor.chip.lower() or
-                ft in self.states[i].sensor.sensor_group.lower() or
-                ft in self.states[i].sensor.simple_name.lower() or
-                ft in self.states[i].variable.lower() or
-                (self.states[i].custom_unit and ft in self.states[i].custom_unit.lower()))]
+            indices = [
+                i
+                for i in indices
+                if (
+                    ft in self.states[i].sensor.chip.lower()
+                    or ft in self.states[i].sensor.sensor_group.lower()
+                    or ft in self.states[i].sensor.simple_name.lower()
+                    or ft in self.states[i].variable.lower()
+                    or ((cu := self.states[i].custom_unit) and ft in cu.lower())
+                )
+            ]
+
         def key_fn(i):
             st = self.states[i]
             if self.sort_key == COL_ENABLED:
-                return (0 if (st.in_config or st.selected) else 1, st.sensor.chip.lower())
+                return (
+                    0 if (st.in_config or st.selected) else 1,
+                    st.sensor.chip.lower(),
+                )
             if self.sort_key == COL_CONFIGURED:
                 return (0 if st.in_config else 1, st.sensor.chip.lower())
             if self.sort_key == COL_NUM:
@@ -337,40 +510,30 @@ class SensorDiscoveryTui(App[None]):
             if self.sort_key == COL_LABEL:
                 return st.sensor.simple_name.lower()
             return st.sensor.chip.lower()
+
         indices.sort(key=key_fn, reverse=self.sort_reverse)
         self.display_order = indices
 
     def _sync_detail_from_idx(self, idx: int):
         self._active_idx = idx
         st = self.states[idx]
-        s = st.sensor
-        if st.in_config and st.selected:
-            action = "Will be REMOVED on next save"
-        elif not st.in_config and st.selected:
-            action = "Will be ADDED on next save"
-        else:
-            action = "No pending changes"
-        info_text = (
-            f"#{st.stable_id}  {s.simple_name}\n"
-            f"chip: {s.chip}\n"
-            f"sensor: {s.sensor_group}\n"
-            f"Enabled: {'Yes' if (st.in_config or st.selected) else 'No'}  |  Configured: {'Yes' if st.in_config else 'No'}\n"
-            f"Status: {action}\n"
-            f"{st.sensor.description}"
-        )
-        self.query_one("#meta", Static).update(info_text)
+        self._refresh_meta_text()
         self._suppress_var_sync = True
         self.query_one("#var_in", Input).value = st.variable
         self._suppress_var_sync = False
         self._suppress_divide_sync = True
-        self.query_one("#divide_in", Input).value = str(st.divide_by) if st.divide_by and st.divide_by >= 2 else ""
+        self.query_one("#divide_in", Input).value = (
+            str(st.divide_by) if st.divide_by and st.divide_by >= 2 else ""
+        )
         self._suppress_divide_sync = False
         self._suppress_unit_sync = True
-        self.query_one("#unit_in", Input).value = st.custom_unit if st.custom_unit else ""
+        unit_input = self.query_one("#unit_in", Input)
+        unit_input.value = st.custom_unit if st.custom_unit else ""
+        unit_input.placeholder = st.sensor.unit
         self._suppress_unit_sync = False
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted):
-        if self._loading or not event.row_key:
+        if self._loading or not event.row_key or not event.row_key.value:
             return
         stable_id = int(event.row_key.value)
         for i, st in enumerate(self.states):
@@ -378,26 +541,32 @@ class SensorDiscoveryTui(App[None]):
                 self._sync_detail_from_idx(i)
                 break
 
-    def on_clickable_data_table_cell_clicked(self, event: ClickableDataTable.CellClicked):
+    def on_clickable_data_table_cell_clicked(
+        self, event: ClickableDataTable.CellClicked
+    ):
         if self._loading:
             return
-        column = event.column_key
-        column_key_value = column.key.value if hasattr(column, 'key') else str(column.label)
-        row = event.row_key
-        row_key_value = row.key.value if hasattr(row, 'key') else str(row.label)
+        column_key_value = event.column_key
+        row_key_value = event.row_key
         if column_key_value == COL_ENABLED:
             stable_id = int(row_key_value)
             for i, st in enumerate(self.states):
                 if st.stable_id == stable_id:
                     table = self.query_one("#tbl", ClickableDataTable)
                     try:
-                        row_index = table.ordered_rows.index(event.row_key)
+                        row_key_obj = next(
+                            rk
+                            for rk in table.ordered_rows
+                            if rk.key.value == row_key_value
+                        )
+                        row_index = table.ordered_rows.index(row_key_obj)
                         table.move_cursor(row=row_index)
-                    except ValueError:
+                    except (StopIteration, ValueError):
                         pass
                     self._toggle_sensor(i)
+                    self._refresh_meta_text()
                     break
-    
+
     def _toggle_sensor(self, idx: int):
         if self._loading or idx is None:
             return
@@ -418,10 +587,18 @@ class SensorDiscoveryTui(App[None]):
             self.filter_text = event.value
             self._recompute_display_order()
             self._reorder_table()
-        elif event.input.id == "var_in" and not self._suppress_var_sync and self._active_idx is not None:
+        elif (
+            event.input.id == "var_in"
+            and not self._suppress_var_sync
+            and self._active_idx is not None
+        ):
             self.states[self._active_idx].variable = event.value
             self._refresh_row(self._active_idx)
-        elif event.input.id == "divide_in" and not self._suppress_divide_sync and self._active_idx is not None:
+        elif (
+            event.input.id == "divide_in"
+            and not self._suppress_divide_sync
+            and self._active_idx is not None
+        ):
             raw = event.value.strip()
             st = self.states[self._active_idx]
             if raw == "":
@@ -433,19 +610,33 @@ class SensorDiscoveryTui(App[None]):
                         st.divide_by = n
                     else:
                         st.divide_by = None
-                except:
+                except Exception:
                     st.divide_by = None
             self._refresh_row(self._active_idx)
-        elif event.input.id == "unit_in" and not self._suppress_unit_sync and self._active_idx is not None:
+        elif (
+            event.input.id == "unit_in"
+            and not self._suppress_unit_sync
+            and self._active_idx is not None
+        ):
             raw = event.value.strip()
             st = self.states[self._active_idx]
-            st.custom_unit = raw if raw else None
+            if raw:
+                st.custom_unit = raw
+                st.unit_cleared = False
+            else:
+                st.custom_unit = None
+                st.unit_cleared = True
             self._refresh_row(self._active_idx)
+        self._refresh_meta_text()
 
     def on_input_submitted(self, event: Input.Submitted):
-        if self._loading:
+        if self._loading or self._active_idx is None:
             return
         if event.input.id == "var_in":
+            st = self.states[self._active_idx]
+            st.variable = sanitize_variable_name(st.variable)
+            self._sync_detail_from_idx(self._active_idx)
+            self._refresh_row(self._active_idx)
             self.query_one("#divide_in", Input).focus()
         elif event.input.id == "divide_in":
             self.query_one("#unit_in", Input).focus()
@@ -461,10 +652,7 @@ class SensorDiscoveryTui(App[None]):
             st.variable = st.default_var
             st.divide_by = None
             st.custom_unit = None
-            self._sync_detail_from_idx(self._active_idx)
-            self._refresh_row(self._active_idx)
-        elif bid == "btn_sanitize":
-            st.variable = sanitize_variable_name(st.variable)
+            st.unit_cleared = False
             self._sync_detail_from_idx(self._active_idx)
             self._refresh_row(self._active_idx)
         elif bid == "btn_save":
@@ -476,14 +664,49 @@ class SensorDiscoveryTui(App[None]):
         elif bid == "btn_quit":
             self.exit()
 
-    def _save_config(self):
-        selected = [st for st in self.states if st.selected]
-        if not selected:
+    def _apply_field_edits(self, existing_sensors: list) -> None:
+        """Apply field edits (variable, format, divide_by, unit) for the active sensor."""
+        if self._active_idx is None:
             return
+        st = self.states[self._active_idx]
+        key = normalize_hardware_key(st.sensor.chip, st.sensor.sensor_group)
+        for entry in existing_sensors:
+            if not isinstance(entry, dict):
+                continue
+            ec = entry.get("chip")
+            es = entry.get("sensor")
+            if ec and es and normalize_hardware_key(ec, es) == key:
+                entry["variable"] = sanitize_variable_name(st.variable)
+                entry["format"] = self._make_format(st)
+                if st.divide_by and st.divide_by >= 2:
+                    entry["divide_by"] = st.divide_by
+                elif "divide_by" in entry:
+                    del entry["divide_by"]
+                if st.custom_unit:
+                    entry["unit"] = st.custom_unit
+                elif "unit" in entry:
+                    del entry["unit"]
+                return
+
+    def _save_config(self):
         cfg = self.discovery._load_config(self.config_file)
-        existing_sensors = cfg.get('sensors', [])
-        to_remove = {normalize_hardware_key(st.sensor.chip, st.sensor.sensor_group) 
-                     for st in selected if st.in_config}
+        existing_sensors = cfg.get("sensors", [])
+
+        # Always apply field edits for the active sensor
+        self._apply_field_edits(existing_sensors)
+
+        selected = [st for st in self.states if st.selected]
+        has_changes = bool(selected) or (
+            self._active_idx is not None and self.states[self._active_idx].in_config
+        )
+        if not has_changes:
+            return
+
+        to_remove = {
+            normalize_hardware_key(st.sensor.chip, st.sensor.sensor_group)
+            for st in selected
+            if st.in_config
+        }
         for st in selected:
             if st.in_config:
                 continue
@@ -491,87 +714,129 @@ class SensorDiscoveryTui(App[None]):
             already_exists = False
             for entry in existing_sensors:
                 if isinstance(entry, dict):
-                    ec = entry.get('chip')
-                    es = entry.get('sensor')
+                    ec = entry.get("chip")
+                    es = entry.get("sensor")
                     if ec and es and normalize_hardware_key(ec, es) == key:
-                        entry['variable'] = sanitize_variable_name(st.variable)
+                        entry["variable"] = sanitize_variable_name(st.variable)
+                        entry["format"] = self._make_format(st)
                         if st.divide_by and st.divide_by >= 2:
-                            entry['divide_by'] = st.divide_by
-                        elif 'divide_by' in entry:
-                            del entry['divide_by']
+                            entry["divide_by"] = st.divide_by
+                        elif "divide_by" in entry:
+                            del entry["divide_by"]
                         if st.custom_unit:
-                            entry['unit'] = st.custom_unit
-                        elif 'unit' in entry:
-                            del entry['unit']
+                            entry["unit"] = st.custom_unit
+                        elif "unit" in entry:
+                            del entry["unit"]
                         already_exists = True
                         break
             if not already_exists:
                 entry = {
-                    'variable': sanitize_variable_name(st.variable),
-                    'chip': st.sensor.chip,
-                    'sensor': st.sensor.sensor_group,
-                    'name': st.sensor.simple_name,
-                    'format': self.discovery.companion_format_yaml(st.sensor),
+                    "variable": sanitize_variable_name(st.variable),
+                    "chip": st.sensor.chip,
+                    "sensor": st.sensor.sensor_group,
+                    "name": st.sensor.simple_name,
+                    "format": self._make_format(st),
                 }
                 if st.divide_by and st.divide_by >= 2:
-                    entry['divide_by'] = st.divide_by
+                    entry["divide_by"] = st.divide_by
                 if st.custom_unit:
-                    entry['unit'] = st.custom_unit
+                    entry["unit"] = st.custom_unit
                 existing_sensors.append(entry)
         if to_remove:
             new_sensors = []
             for entry in existing_sensors:
-                if isinstance(entry, dict) and entry.get('chip') and entry.get('sensor'):
-                    if normalize_hardware_key(entry['chip'], entry['sensor']) in to_remove:
+                if (
+                    isinstance(entry, dict)
+                    and entry.get("chip")
+                    and entry.get("sensor")
+                ):
+                    if (
+                        normalize_hardware_key(entry["chip"], entry["sensor"])
+                        in to_remove
+                    ):
                         continue
                 new_sensors.append(entry)
             existing_sensors = new_sensors
-        cfg['sensors'] = existing_sensors
+        cfg["sensors"] = existing_sensors
         try:
             import yaml
-            with open(self.config_file, 'w') as f:
-                yaml.dump(cfg, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+            with open(self.config_file, "w") as f:
+                yaml.dump(
+                    cfg,
+                    f,
+                    default_flow_style=False,
+                    sort_keys=False,
+                    allow_unicode=True,
+                )
         except Exception:
             return
         hw_keys = self.discovery.load_config_hardware_keys(self.config_file)
         self._config_divide_map = self.discovery.load_config_divide_by(self.config_file)
-        self._config_unit_map = self.discovery.load_config_unit_overrides(self.config_file)
+        self._config_unit_map = self.discovery.load_config_unit_overrides(
+            self.config_file
+        )
         for st in self.states:
             key = normalize_hardware_key(st.sensor.chip, st.sensor.sensor_group)
             st.in_config = key in hw_keys
             st.selected = False
+            st.divide_by = self._config_divide_map.get(key, 0)
+            saved_unit = self._config_unit_map.get(key, None)
+            st.custom_unit = saved_unit
+            st.unit_cleared = st.in_config and saved_unit is None
             self._refresh_row(self.states.index(st))
         self._reorder_table()
-    
+        self._refresh_meta_text()
+
     def _update_configuration_status(self):
         hw_keys = self.discovery.load_config_hardware_keys(self.config_file)
+        self._config_divide_map = self.discovery.load_config_divide_by(self.config_file)
+        self._config_unit_map = self.discovery.load_config_unit_overrides(
+            self.config_file
+        )
         for i, st in enumerate(self.states):
             key = normalize_hardware_key(st.sensor.chip, st.sensor.sensor_group)
             st.in_config = key in hw_keys
+            st.divide_by = self._config_divide_map.get(key, 0)
+            saved_unit = self._config_unit_map.get(key, None)
+            st.custom_unit = saved_unit
+            st.unit_cleared = st.in_config and saved_unit is None
             self._refresh_row(i)
         if self._active_idx is not None:
             self._sync_detail_from_idx(self._active_idx)
         self._reorder_table()
+        self._refresh_meta_text()
 
     def _reload_daemon(self):
         import subprocess
-        subprocess.run(["sensor-monitor", "-c", self.config_file, "reload"], 
-                      capture_output=True, text=True)
+
+        subprocess.run(
+            ["sensor-monitor", "-c", self.config_file, "reload"],
+            capture_output=True,
+            text=True,
+        )
 
     def _update_sort_headers(self):
         table = self.query_one("#tbl", ClickableDataTable)
-        for col_key in [COL_ENABLED, COL_CONFIGURED, COL_NUM, COL_VAR, COL_READ, COL_UNIT, COL_CHIP, COL_SENSOR, COL_LABEL]:
-            label_obj = table.columns[col_key].label
-            if hasattr(label_obj, 'plain'):
-                label = label_obj.plain
-            else:
-                label = str(label_obj)
+        for col_key in [
+            COL_ENABLED,
+            COL_CONFIGURED,
+            COL_NUM,
+            COL_VAR,
+            COL_READ,
+            COL_UNIT,
+            COL_CHIP,
+            COL_SENSOR,
+            COL_LABEL,
+        ]:
+            col = table.columns[_ColumnKey(col_key)]
+            label = str(col.label) if not isinstance(col.label, str) else col.label
             if label.endswith(" ↑") or label.endswith(" ↓"):
                 label = label[:-2]
             if col_key == self.sort_key:
                 arrow = " ↓" if self.sort_reverse else " ↑"
                 label += arrow
-            table.columns[col_key].label = label
+            col.label = label  # type: ignore[assignment]
 
     def _set_sort(self, key):
         if self._loading:
@@ -585,51 +850,83 @@ class SensorDiscoveryTui(App[None]):
         self._reorder_table()
         self._update_sort_headers()
 
-    def action_quit(self): self.exit()
-    def action_focus_filter(self): self.query_one("#filter_in").focus()
+    async def action_quit(self):
+        self.exit()
+
+    def action_focus_filter(self):
+        self.query_one("#filter_in").focus()
+
     def action_toggle_focused(self):
         if self._loading or self._active_idx is None:
             return
         self._toggle_sensor(self._active_idx)
+
     def action_select_all(self):
-        if self._loading: return
+        if self._loading:
+            return
         for st in self.states:
             if not st.selected:
                 st.selected = True
                 self._refresh_row(self.states.index(st))
+
     def action_select_none(self):
-        if self._loading: return
+        if self._loading:
+            return
         for st in self.states:
             if st.selected:
                 st.selected = False
                 self._refresh_row(self.states.index(st))
-    def action_sort_enabled(self): self._set_sort(COL_ENABLED)
-    def action_sort_configured(self): self._set_sort(COL_CONFIGURED)
-    def action_sort_chip(self): self._set_sort(COL_CHIP)
-    def action_sort_num(self): self._set_sort(COL_NUM)
-    def action_sort_sensor(self): self._set_sort(COL_SENSOR)
-    def action_sort_unit(self): self._set_sort(COL_UNIT)
-    def action_sort_value(self): self._set_sort(COL_READ)
-    def action_sort_label(self): self._set_sort(COL_LABEL)
-    def action_sort_var(self): self._set_sort(COL_VAR)
+
+    def action_sort_enabled(self):
+        self._set_sort(COL_ENABLED)
+
+    def action_sort_configured(self):
+        self._set_sort(COL_CONFIGURED)
+
+    def action_sort_chip(self):
+        self._set_sort(COL_CHIP)
+
+    def action_sort_num(self):
+        self._set_sort(COL_NUM)
+
+    def action_sort_sensor(self):
+        self._set_sort(COL_SENSOR)
+
+    def action_sort_unit(self):
+        self._set_sort(COL_UNIT)
+
+    def action_sort_value(self):
+        self._set_sort(COL_READ)
+
+    def action_sort_label(self):
+        self._set_sort(COL_LABEL)
+
+    def action_sort_var(self):
+        self._set_sort(COL_VAR)
+
     def action_sort_reverse(self):
-        if self._loading: return
+        if self._loading:
+            return
         self.sort_reverse = not self.sort_reverse
         self._recompute_display_order()
         self._reorder_table()
         self._update_sort_headers()
+
     def action_focus_table(self):
         if not self._loading:
             self.query_one("#tbl").focus()
+
     def action_focus_var(self):
         if not self._loading:
             self.query_one("#var_in").focus()
 
+
 def main():
     import argparse
     from pathlib import Path
-    DEFAULT_CONFIG_DIR = Path.home() / '.config' / 'sensor-monitor'
-    DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / 'sm_config.yaml'
+
+    DEFAULT_CONFIG_DIR = Path.home() / ".config" / "sensor-monitor"
+    DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / "sm_config.yaml"
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", default=str(DEFAULT_CONFIG_FILE))
     args = parser.parse_args()
@@ -637,6 +934,7 @@ def main():
     config_path.parent.mkdir(parents=True, exist_ok=True)
     app = SensorDiscoveryTui(config_file=str(config_path))
     app.run()
+
 
 if __name__ == "__main__":
     main()

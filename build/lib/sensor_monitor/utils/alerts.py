@@ -1,15 +1,40 @@
+import os
 import logging
 import subprocess
 import shlex
-from typing import Dict, Union
+from typing import Dict, Union, List
 from ..sources.base import SensorReading
 from ..companion.client import CompanionClient
+
+logger = logging.getLogger(__name__)
+
+# Allowlist of safe alert commands (executable basenames only)
+ALLOWED_ALERT_COMMANDS = {
+    'notify-send',
+    'systemctl',
+    'loginctl',
+    'pkexec',
+    'zenity',
+    'kdialog',
+    'xmessage',
+    'mail',
+    'sendmail',
+    'curl',
+    'wget',
+}
 
 class AlertChecker:
     def __init__(self, alerts_config: list, companion: CompanionClient):
         self.alerts = alerts_config
         self.companion = companion
         self.logger = logging.getLogger(__name__)
+
+    def _is_command_allowed(self, cmd: List[str]) -> bool:
+        """Check if the command executable is in the allowlist."""
+        if not cmd:
+            return False
+        exe = os.path.basename(cmd[0])
+        return exe in ALLOWED_ALERT_COMMANDS
 
     def check(self, alert_cfg: Dict, reading: SensorReading, value_str: str):
         condition = alert_cfg.get('condition')
@@ -44,6 +69,9 @@ class AlertChecker:
                             cmd = cmd_raw
                         else:
                             self.logger.error(f"Invalid command type: {type(cmd_raw)}")
+                            return
+                        if not self._is_command_allowed(cmd):
+                            self.logger.warning(f"Alert command not in allowlist: {cmd[0] if cmd else '(empty)'}")
                             return
                         try:
                             subprocess.run(cmd, shell=False, check=False)

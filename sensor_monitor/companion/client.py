@@ -79,7 +79,7 @@ class CompanionClient:
                 return False
         
         resp = self._request('POST', f'/api/custom-variable/{clean}/value',
-                           data=value, headers={'Content-Type': 'text/plain'})
+                     data=value, headers={'Content-Type': 'text/plain'})
         if resp and resp.status_code == 200:
             logger.debug(f"Set {clean} = {value}")
             return True
