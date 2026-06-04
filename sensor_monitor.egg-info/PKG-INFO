@@ -63,42 +63,40 @@ sudo pacman -S lm\_sensors python-pipx \# Arch / CachyOS
 \# Install Sensor Monitor via pipx  
   
 pipx install --force --editable git+https://github.com/tech127x/sensor-monitor-ds.git  
-  
-\# That's it! The default config directory is auto-created.
+
+# That's it! The default config directory is auto-created.
 
 
-\*\*Note for AMD GPU users:\*\*  
+**Note for AMD GPU users:**  
   
-install \`rocm-smi\` separately from your distribution (e.g., \`pacman -S rocm-smi-lib\`). Sensor Monitor will automatically detect it if present.
+install `rocm-smi` separately from your distribution (e.g., `pacman -S rocm-smi-lib`). Sensor Monitor will automatically detect it if present.
 ```
 
-After install, you have three commands:
+After install, you have two main commands:
 
-- `sensor-discovery-tui` — Interactive sensor configuration
-
-- `sensor-monitor` — Start/stop/status/test the daemon
-
+- `sensor-monitor` — Launch the TUI, start/stop/status/test the daemon
+- `sensor-discovery-tui` — Interactive sensor configuration (also accessible via `sensor-monitor -T`)
 - `sensor-discovery` (optional CLI discovery)
 
 
 ## 🎮 Usage — So Simple You'll Forget It's Running
 
 ```
-sensor-discovery-tui \# Discover & configure sensors (TUI)  
-sensor-monitor test \# Test: read sensors, push to Companion once  
-sensor-monitor start –daemon \# Start daemon in background  
-sensor-monitor status \# Check if daemon is running  
-sensor-monitor stop \# Stop daemon  
-sensor-monitor reload \# Reload config without restarting  
-sensor-monitor start \# Run in foreground (for systemd / debugging)
+sensor-monitor -T       # Launch the discovery & configuration TUI
+sensor-monitor -t       # Test: read sensors, push to Companion once
+sensor-monitor -s       # Start daemon in background
+sensor-monitor -S       # Check if daemon is running
+sensor-monitor -k       # Stop daemon
+sensor-monitor -r       # Reload config without restarting
+sensor-monitor -f       # Run in foreground (for systemd / debugging)
 ```
 
 Fish Shell? Add these to your config for even faster access:
 
 ```
 alias sm="sensor-monitor"  
-alias smt="sensor-discovery-tui"  
-alias sms="sensor-monitor status"
+alias smt="sensor-monitor -T"  
+alias sms="sensor-monitor -S"
 ```
 
 
@@ -130,34 +128,76 @@ All values update every second — no manual refreshing.
 Run the interactive TUI:
 
 ```
+sensor-monitor -T
+# or
 sensor-discovery-tui
 ```
 
-What you'll see:
+### What you'll see
 
 - A loading screen ("🔍 Discovering Sensors…") while it scans your hardware (may take a few seconds on systems with many sensors)
 
 - A table of every sensor found, with columns: **Enabled**, **Configured**, reading, unit, chip, and label
 
-- A detail panel at the bottom showing the selected sensor's info and editable fields (variable name, divide by, unit override)
+- A detail panel at the bottom showing:
+  - Sensor info (number, name, chip, sensor group)
+  - Status (Enabled, Configured, pending changes)
+  - **Companion value preview** — shows exactly what will be sent to Companion (e.g., `quadro_fan_1 = 2081`)
+  - Editable fields: **variable name**, **divide by**, and **unit override**
 
-**To add a sensor:**
+### To add a sensor:
 
 1. Find it in the table (use `/` to filter)
 
 2. Click the **Enabled** column (or press Space) to toggle it to "✓ Yes"
 
-3. Optionally tweak the variable name in the detail panel
+3. Optionally tweak the variable name or unit in the detail panel
 
 4. Click **Save & Reload** — the sensor is added to your config and the daemon picks it up immediately
 
-**To remove a sensor:**
+### To remove a sensor:
 
 1. Find the configured sensor (shows "Configured: ✓ Yes")
 
 2. Click its Enabled column to mark it for removal (status shows "Will be REMOVED on next save")
 
 3. Click **Save & Reload**
+
+### Editing variable names
+
+- Press **Tab** or **Enter** after editing the variable name — it's **auto-sanitized** (invalid characters replaced with underscores, hyphens converted)
+- Press **Tab** to cycle through fields: Variable name → Divide by → Unit
+
+### Removing the unit suffix
+
+By default, Companion values include the unit suffix (e.g., `2105RPM`). To send bare numbers:
+
+1. Select the sensor in the table
+2. Delete the unit text in the **Unit** field
+3. Click **Save & Reload**
+
+The Companion value will now be just the number (e.g., `2105`).
+
+### Buttons
+
+| Button | Action |
+|---|---|
+| **Sensor default** | Reset variable name, divide by, and unit to defaults |
+| **Save changes** | Write config to disk |
+| **Save & Reload** | Write config and tell the running daemon to reload |
+| **Exit** | Close the TUI |
+
+### Keyboard shortcuts
+
+| Key | Action |
+|---|---|
+| `/` | Focus the filter/search box |
+| `Space` | Toggle selected sensor on/off |
+| `a` | Enable all sensors |
+| `z` | Disable all sensors |
+| `o` / `g` / `c` / `i` / `p` / `u` / `v` / `n` / `b` | Sort by various columns |
+| `r` | Reverse sort order |
+| `q` | Quit |
 
 All settings are stored in `~/.config/sensor-monitor/sm\_config.yaml`. You can edit it manually if you prefer, but you'll rarely need to.
 

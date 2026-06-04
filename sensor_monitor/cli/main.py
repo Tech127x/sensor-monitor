@@ -209,16 +209,6 @@ def test_once(config_file: str) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Sensor Monitor for Bitfocus Companion",
-        epilog="Examples:\n"
-        "  sensor-monitor -s           Start daemon (background)\n"
-        "  sensor-monitor -f           Start in foreground\n"
-        "  sensor-monitor -k           Stop daemon\n"
-        "  sensor-monitor -r           Reload configuration\n"
-        "  sensor-monitor -S           Check status\n"
-        "  sensor-monitor -t           Test sensors once\n"
-        "  sensor-monitor -T           Launch sensor discovery TUI\n"
-        "  sensor-monitor -c custom.yaml -s   Use custom config\n",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "-c",

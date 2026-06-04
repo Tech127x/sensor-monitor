@@ -138,7 +138,7 @@ class SensorDiscovery:
         used: Set[str] = set()
         out = []
         for s in sensors:
-            base = sanitize_variable_name(f"{s.category}_{s.simple_name}")
+            base = sanitize_variable_name(s.simple_name)
             name = base
             if name not in used:
                 used.add(name)
@@ -245,4 +245,3 @@ class SensorDiscovery:
             if chip and sensor and variable and isinstance(variable, str):
                 out[normalize_hardware_key(chip, sensor)] = variable
         return out
-
