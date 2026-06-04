@@ -1,15 +1,12 @@
 """Sensor Discovery Module - discovers sensors and manages config files."""
 
-import logging
 import os
 import re
 import sys
-from datetime import datetime
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Set, Tuple
 
 import yaml
 
-from ..companion.client import CompanionClient
 from ..sources.amd import AmdGpuSource
 from ..sources.base import SensorReading
 from ..sources.cpu_sysfs import CpuSysfsSource
@@ -18,8 +15,6 @@ from ..sources.lmsensors import LmSensorsSource
 from ..sources.nvidia import NvidiaSmiSource
 from ..sources.procstat import ProcStatSource
 from ..utils.helpers import (
-    get_category,
-    get_unit,
     normalize_hardware_key,
     repair_misindented_yaml,
     sanitize_variable_name,
@@ -140,7 +135,6 @@ class SensorDiscovery:
         return sorted(self.sensors, key=lambda s: (s.category, s.simple_name))
 
     def assign_default_variables(self, sensors: List[DiscoveredSensor]) -> List[str]:
-        client = CompanionClient()
         used: Set[str] = set()
         out = []
         for s in sensors:
@@ -252,77 +246,3 @@ class SensorDiscovery:
                 out[normalize_hardware_key(chip, sensor)] = variable
         return out
 
-    def append_to_config(
-        self,
-        selections: List[Tuple[DiscoveredSensor, str, Optional[int]]],
-        config_file: str,
-    ) -> Tuple[bool, List[str]]:
-        if not selections:
-            return False, []
-        cfg = self._load_config(config_file)
-        if "sensors" not in cfg:
-            cfg["sensors"] = []
-        variable_names = []
-        # Ensure use_libsensors is set to false in new configs to avoid naming mismatches
-        if "use_libsensors" not in cfg:
-            cfg["use_libsensors"] = False
-        for sensor, var_name, divide_by in selections:
-            var_name = sanitize_variable_name(var_name)
-            entry = {
-                "variable": var_name,
-                "chip": sensor.chip,
-                "sensor": sensor.sensor_group,
-                "name": sensor.simple_name,
-                "format": self.companion_format_yaml(sensor),
-            }
-            if divide_by is not None and divide_by >= 2:
-                entry["divide_by"] = divide_by  # type: ignore[assignment]
-            cfg["sensors"].append(entry)
-            variable_names.append(var_name)
-        try:
-            with open(config_file, "w") as f:
-                yaml.dump(
-                    cfg,
-                    f,
-                    default_flow_style=False,
-                    sort_keys=False,
-                    allow_unicode=True,
-                )
-            return True, variable_names
-        except (OSError, yaml.YAMLError) as e:
-            logging.error(f"Error writing config: {e}")
-            return False, []
-
-    def remove_sensors_from_config(
-        self, hardware_keys: Set[Tuple[str, str]], config_file: str
-    ) -> Tuple[bool, int]:
-        if not hardware_keys:
-            return True, 0
-        cfg = self._load_config(config_file)
-        original = cfg.get("sensors", [])
-        new_sensors = []
-        removed = 0
-        for entry in original:
-            if not isinstance(entry, dict):
-                new_sensors.append(entry)
-                continue
-            chip = entry.get("chip")
-            sensor = entry.get("sensor")
-            if (
-                chip
-                and sensor
-                and normalize_hardware_key(chip, sensor) in hardware_keys
-            ):
-                removed += 1
-                continue
-            new_sensors.append(entry)
-        if removed == 0:
-            return True, 0
-        cfg["sensors"] = new_sensors
-        try:
-            with open(config_file, "w") as f:
-                yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
-            return True, removed
-        except (OSError, yaml.YAMLError) as e:
-            logging.error(f"Error removing sensors: {e}")
-            return False, 0

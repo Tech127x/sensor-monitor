@@ -2,19 +2,18 @@
 """Sensor Monitor CLI - flat action flags like volume-monitor."""
 
 import argparse
-import sys
+import logging
 import os
 import signal
-import logging
 import subprocess
+import sys
 from pathlib import Path
 
 from ..core.monitor import SensorMonitor
-from ..utils.daemon import acquire_pidfile, release_pidfile
 from ..utils.logging import setup_logging
 
-DEFAULT_CONFIG_DIR = Path.home() / '.config' / 'sensor-monitor'
-DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / 'sm_config.yaml'
+DEFAULT_CONFIG_DIR = Path.home() / ".config" / "sensor-monitor"
+DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / "sm_config.yaml"
 
 
 def get_default_config() -> str:
@@ -23,12 +22,14 @@ def get_default_config() -> str:
 
 
 def _get_pidfile(config_file: str) -> str:
-    return os.path.join(os.path.dirname(os.path.abspath(config_file)), 'sensor_monitor.pid')
+    return os.path.join(
+        os.path.dirname(os.path.abspath(config_file)), "sensor_monitor.pid"
+    )
 
 
 def _read_pid(pidfile: str) -> int | None:
     try:
-        with open(pidfile, 'r') as f:
+        with open(pidfile, "r") as f:
             return int(f.read().strip())
     except (FileNotFoundError, ValueError):
         return None
@@ -64,15 +65,16 @@ def start_daemon(config_file: str, foreground: bool = False) -> None:
 
     if not foreground:
         # Launch detached background process
-        cmd = [sys.executable, '-m', 'sensor_monitor.cli.main', '-f', '-c', config_file]
+        cmd = [sys.executable, "-m", "sensor_monitor.cli.main", "-f", "-c", config_file]
         proc = subprocess.Popen(
             cmd,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            start_new_session=True
+            start_new_session=True,
         )
         import time
+
         for _ in range(10):
             time.sleep(0.2)
             if os.path.exists(pidfile):
@@ -94,8 +96,9 @@ def start_daemon(config_file: str, foreground: bool = False) -> None:
 
     # Acquire PID file lock
     try:
-        fd = open(pidfile, 'w')
+        fd = open(pidfile, "w")
         import fcntl
+
         fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         fd.write(str(os.getpid()))
         fd.flush()
@@ -207,34 +210,64 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Sensor Monitor for Bitfocus Companion",
         epilog="Examples:\n"
-               "  sensor-monitor -s           Start daemon (background)\n"
-               "  sensor-monitor -f           Start in foreground\n"
-               "  sensor-monitor -k           Stop daemon\n"
-               "  sensor-monitor -r           Reload configuration\n"
-               "  sensor-monitor -S           Check status\n"
-               "  sensor-monitor -t           Test sensors once\n"
-               "  sensor-monitor -c custom.yaml -s   Use custom config\n",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        "  sensor-monitor -s           Start daemon (background)\n"
+        "  sensor-monitor -f           Start in foreground\n"
+        "  sensor-monitor -k           Stop daemon\n"
+        "  sensor-monitor -r           Reload configuration\n"
+        "  sensor-monitor -S           Check status\n"
+        "  sensor-monitor -t           Test sensors once\n"
+        "  sensor-monitor -T           Launch sensor discovery TUI\n"
+        "  sensor-monitor -c custom.yaml -s   Use custom config\n",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument('-c', '--config', default=None,
-                        help=f'Path to configuration file (default: {DEFAULT_CONFIG_FILE})')
-    parser.add_argument('-d', '--debug', action='store_true',
-                        help='Enable verbose debug logging')
+    parser.add_argument(
+        "-c",
+        "--config",
+        default=None,
+        help=f"Path to configuration file (default: {DEFAULT_CONFIG_FILE})",
+    )
+    parser.add_argument(
+        "-d", "--debug", action="store_true", help="Enable verbose debug logging"
+    )
 
     # Action flags (mutually exclusive group)
     action_group = parser.add_mutually_exclusive_group()
-    action_group.add_argument('-s', '--start', action='store_true',
-                              help='Start monitor in background (daemon mode)')
-    action_group.add_argument('-f', '--start-foreground', action='store_true',
-                              help='Start monitor in foreground')
-    action_group.add_argument('-k', '--stop', action='store_true',
-                              help='Stop running monitor')
-    action_group.add_argument('-r', '--reload', action='store_true',
-                              help='Reload configuration of running monitor')
-    action_group.add_argument('-S', '--status', action='store_true',
-                              help='Check if monitor is running')
-    action_group.add_argument('-t', '--test', action='store_true',
-                              help='Test sensor readings once (no daemon)')
+    action_group.add_argument(
+        "-s",
+        "--start",
+        action="store_true",
+        help="Start monitor in background (daemon mode)",
+    )
+    action_group.add_argument(
+        "-f",
+        "--start-foreground",
+        action="store_true",
+        help="Start monitor in foreground",
+    )
+    action_group.add_argument(
+        "-k", "--stop", action="store_true", help="Stop running monitor"
+    )
+    action_group.add_argument(
+        "-r",
+        "--reload",
+        action="store_true",
+        help="Reload configuration of running monitor",
+    )
+    action_group.add_argument(
+        "-S", "--status", action="store_true", help="Check if monitor is running"
+    )
+    action_group.add_argument(
+        "-t",
+        "--test",
+        action="store_true",
+        help="Test sensor readings once (no daemon)",
+    )
+    parser.add_argument(
+        "-T",
+        "--tui",
+        action="store_true",
+        help="Launch the sensor discovery TUI",
+    )
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -265,10 +298,23 @@ def main() -> None:
         status(config_file)
     elif args.test:
         test_once(config_file)
+    elif args.tui:
+        # Strip the --tui flag from argv before launching the TUI
+        # so its own parser doesn't choke on the unknown argument
+        cleaned_argv = [sys.argv[0]] + [
+            a for a in sys.argv[1:] if a not in ("-T", "--tui")
+        ]
+        old_argv, sys.argv = sys.argv, cleaned_argv
+        try:
+            from sensor_monitor.tui.discovery_tui import main as tui_main
+
+            tui_main()
+        finally:
+            sys.argv = old_argv
     else:
         # Should not happen due to mutually exclusive group, but fallback
         parser.print_help()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

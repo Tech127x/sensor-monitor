@@ -1,0 +1,54 @@
+--- a/sensor_monitor/cli/main.py
++++ b/sensor_monitor/cli/main.py
+@@ -1,4 +1,5 @@
+ import argparse
++import sys
+ import os
+ import signal
+ import logging
+@@ -50,7 +51,7 @@ def get_default_config():
+     DEFAULT_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+     return str(DEFAULT_CONFIG_FILE)
+ 
+-def start_daemon(config_file, daemon=False):
++def start_daemon(config_file, foreground=False):
+     if not os.path.exists(config_file):
+         print(f"ERROR: Config file not found: {config_file}")
+         print("Run 'sensor-discovery-tui' first to configure sensors")
+@@ -58,7 +59,7 @@ def start_daemon(config_file, daemon=False):
+     
+     pidfile = os.path.join(os.path.dirname(os.path.abspath(config_file)), 'sensor_monitor.pid')
+     
+-    if daemon:
++    if not foreground:
+         # Launch a detached background process
+         if os.path.exists(pidfile):
+             try:
+@@ -99,7 +100,7 @@ def start_daemon(config_file, daemon=False):
+     signal.signal(signal.SIGTERM, shutdown)
+     signal.signal(signal.SIGINT, shutdown)
+     signal.signal(signal.SIGHUP, lambda s, f: mon.reload_config())
+-    
++
+     logging.info(f"Starting monitor with {len(mon.mappings)} sensors")
+     try:
+         mon.run()
+@@ -185,10 +186,17 @@ def main():
+     subparsers = parser.add_subparsers(dest='command', required=True, help='Command to execute')
+     
+     start_parser = subparsers.add_parser('start', help='Start the monitor (foreground)')
+-    start_parser.add_argument('--daemon', action='store_true', help='Run as background daemon')
++    start_parser.add_argument('--foreground', action='store_true',
++                              help='Run in foreground (do not detach)')
++    # Keep --daemon for backward compatibility (now the default)
++    start_parser.add_argument('--daemon', action='store_true', help=argparse.SUPPRESS)
+     
+     subparsers.add_parser('stop', help='Stop the monitor daemon')
+     subparsers.add_parser('reload', help='Reload the monitor configuration')
+     subparsers.add_parser('status', help='Check if the monitor is running')
+     subparsers.add_parser('test', help='Test sensor readings once')
+     
++    if len(sys.argv) == 1:
++        parser.print_usage()
++        print("\nAvailable commands: start, stop, reload, status, test\n")
++        sys.exit(1)

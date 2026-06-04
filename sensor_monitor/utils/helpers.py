@@ -129,5 +129,5 @@ def read_sysfs_text(path, limit=256) -> str:
     try:
         with open(path, "r") as f:
             return f.read(limit).strip()
-    except:
+    except OSError:
         return ""

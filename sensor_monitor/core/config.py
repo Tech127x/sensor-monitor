@@ -1,7 +1,7 @@
 import os
 import yaml
 import logging
-from typing import Dict, Any, List, Optional, Tuple, TYPE_CHECKING
+from typing import Dict, Any, List, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..sources.base import SensorReading

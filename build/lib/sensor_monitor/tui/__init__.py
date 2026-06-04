@@ -1,1 +1,0 @@
-"""Textual User Interface for Sensor Monitor."""

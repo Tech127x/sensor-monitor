@@ -1,7 +1,6 @@
 import time
 import logging
-import signal
-from typing import List, Dict, Optional
+from typing import List, Optional
 from ..sources.base import SensorReading
 from ..sources.lmsensors import LmSensorsSource
 from ..sources.nvidia import NvidiaSmiSource
@@ -22,7 +21,7 @@ class SensorMonitor:
 
         # Force subprocess if libsensors not available (to avoid naming mismatch)
         try:
-            import sensors  # noqa
+            import sensors  # noqa  # type: ignore[import]
             self._has_libsensors = True
         except ImportError:
             self._has_libsensors = False
@@ -107,7 +106,7 @@ class SensorMonitor:
             fmt = mapping.get('format', '{value}')
             try:
                 value_str = fmt.format(value=value)
-            except:
+            except Exception:
                 value_str = str(value)
 
             var_name = mapping['variable']
