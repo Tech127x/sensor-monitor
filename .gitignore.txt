@@ -1,3 +1,0 @@
-# /sensor-monitor-ds/.gitignore
-
- build/ *.egg-info/ dist/ *.pyc __pycache__/  *.log *.pid  sm_config.yaml  .venv/ venv/  .vscode/ .idea/

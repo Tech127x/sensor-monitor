@@ -1,3 +1,27 @@
-# /sensor-monitor-ds/.gitignore
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
 
- build/ *.egg-info/ dist/ *.pyc __pycache__/  *.log *.pid  sm_config.yaml  .venv/ venv/  .vscode/ .idea/ .zed/
+# IDE / Editor
+.idea/
+.vscode/
+.zed/
+
+# Virtual environments
+.venv/
+venv/
+
+# Config files (local user config)
+sm_config.yaml
+
+# Logs and PID files
+*.log
+*.pid
+
+# Misc
+.pytest_cache/
+*.diff
+.gitignore.txt
