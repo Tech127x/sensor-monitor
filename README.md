@@ -235,7 +235,8 @@ MIT — use it, modify it, share it. Just give credit!
 
 **Made with ❤️ for the CachyOS community, Bitfocus Companion users, and Stream Deck enthusiasts everywhere!**
 
-If you find this project useful, consider supporting my work! [![GitHub Sponsors](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#EA4AAA)](https://github.com/sponsors/tech127x)
+If you find this project useful, consider supporting my work. Thanks!
+[![GitHub Sponsors](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#EA4AAA)](https://github.com/sponsors/tech127x)
 
 
 ## Disclaimer
