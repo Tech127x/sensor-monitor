@@ -9,7 +9,7 @@
 
 ## Reporting a vulnerability
 
-If you discover a security vulnerability in Sensor Monitor, please **do not** open a public issue. Instead, email the project maintainers directly, or open a GitHub Security Advisory at:
+If you discover a security vulnerability in Sensor Monitor, please **do not** open a public issue. Instead, email the project maintainers directly, or open a GitHub Security Advisory at: [GitHub Security Advisory](https://github.com/Tech127x/volume-monitor/security/advisories)
 
 https://github.com/tech127x/sensor-monitor-ds/security/advisories/new
 
