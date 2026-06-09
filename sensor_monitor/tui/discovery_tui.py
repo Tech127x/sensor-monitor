@@ -670,12 +670,35 @@ class SensorDiscoveryTui(App[None]):
             return
         st = self.states[self._active_idx]
         key = normalize_hardware_key(st.sensor.chip, st.sensor.sensor_group)
+        chip_prefix = (
+            st.sensor.chip.split("-")[0].strip().lower()
+            if "-" in st.sensor.chip
+            else st.sensor.chip.strip().lower()
+        )
         for entry in existing_sensors:
             if not isinstance(entry, dict):
                 continue
             ec = entry.get("chip")
             es = entry.get("sensor")
             if ec and es and normalize_hardware_key(ec, es) == key:
+                found = True
+            else:
+                # Fuzzy fallback: match by sensor name when chip prefix matches
+                # (USB HID device paths can change after reboot)
+                found = (
+                    es is not None
+                    and ec is not None
+                    and st.sensor.sensor_group
+                    and es.strip().lower() == st.sensor.sensor_group.strip().lower()
+                    and (
+                        ec.strip().lower().startswith(chip_prefix)
+                        or chip_prefix.startswith(ec.strip().lower())
+                    )
+                )
+            if found:
+                # Update chip/sensor if they changed (USB HID devices)
+                entry["chip"] = st.sensor.chip
+                entry["sensor"] = st.sensor.sensor_group
                 entry["variable"] = sanitize_variable_name(st.variable)
                 entry["format"] = self._make_format(st)
                 if st.divide_by and st.divide_by >= 2:
@@ -743,6 +766,15 @@ class SensorDiscoveryTui(App[None]):
                     entry["unit"] = st.custom_unit
                 existing_sensors.append(entry)
         if to_remove:
+            # Also build chip-prefix + sensor pairs for fuzzy removal
+            to_remove_fuzzy = set()
+            for chip, sensor in to_remove:
+                prefix = (
+                    chip.split("-")[0].strip().lower()
+                    if "-" in chip
+                    else chip.strip().lower()
+                )
+                to_remove_fuzzy.add((prefix, sensor.strip().lower()))
             new_sensors = []
             for entry in existing_sensors:
                 if (
@@ -754,6 +786,14 @@ class SensorDiscoveryTui(App[None]):
                         normalize_hardware_key(entry["chip"], entry["sensor"])
                         in to_remove
                     ):
+                        continue
+                    # Fuzzy match by chip prefix + sensor name
+                    ec_prefix = (
+                        entry["chip"].split("-")[0].strip().lower()
+                        if "-" in entry["chip"]
+                        else entry["chip"].strip().lower()
+                    )
+                    if (ec_prefix, entry["sensor"].strip().lower()) in to_remove_fuzzy:
                         continue
                 new_sensors.append(entry)
             existing_sensors = new_sensors

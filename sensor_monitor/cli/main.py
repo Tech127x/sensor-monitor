@@ -70,18 +70,24 @@ def start_daemon(config_file: str, foreground: bool = False) -> None:
             cmd,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
             start_new_session=True,
         )
         import time
 
-        for _ in range(10):
+        # Wait up to 10 seconds for the PID file to appear
+        for _ in range(50):
             time.sleep(0.2)
             if os.path.exists(pidfile):
                 print(f"Started daemon (PID {proc.pid})")
                 return
-        print("Started daemon but PID file not created; check logs.")
-        return
+        # Capture any error output from the failed process
+        _, stderr = proc.communicate(timeout=1)
+        if stderr:
+            print(f"Daemon failed to start:\n{stderr.decode().strip()}")
+        else:
+            print("Daemon failed to start for an unknown reason.")
+        sys.exit(1)
 
     # Foreground mode
     setup_logging(config_file, daemon=False)
@@ -136,12 +142,19 @@ def stop_daemon(config_file: str) -> None:
         sys.exit(1)
     if not _is_running(pid):
         print("Removing stale PID file (process not found)")
-        os.unlink(pidfile)
+        try:
+            os.unlink(pidfile)
+        except OSError:
+            pass
         sys.exit(1)
     try:
         os.kill(pid, signal.SIGTERM)
         print(f"Stopped monitor (PID {pid})")
-        os.unlink(pidfile)
+        # The daemon's shutdown handler may have already deleted the PID file
+        try:
+            os.unlink(pidfile)
+        except OSError:
+            pass
     except Exception as e:
         print(f"Failed to stop: {e}")
         sys.exit(1)

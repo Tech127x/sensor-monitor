@@ -1,3 +1,8 @@
+### FYI -- This program is built and tested on:
+   - Bitfocus Companion BETA >= Companion: v5.0.0+9451 main-28ba9a55a8
+   - OS: Linux (v7.0.11-1-cachyos; x64)
+I am very actively working on this project. If you give it a try, please send me feedback! The more I know from all of you, the better it will become!  I have made many improvements in the last couple days so make sure you're using the latest version and check frequently for updates. Thanks!
+
 # 🌡️ Sensor Monitor for Bitfocus Companion
 
 Real-time hardware monitoring at your fingertips — finally, sensor data that just works.
