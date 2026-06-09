@@ -1,3 +1,7 @@
+# Sensor Monitor - Hardware sensor monitoring for Bitfocus Companion
+# Created by Tech127x (https://github.com/tech127x)
+# Repository: https://github.com/tech127x/sensor-monitor-ds
+
 import subprocess
 import time
 from typing import List, Optional

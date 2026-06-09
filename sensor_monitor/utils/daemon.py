@@ -3,6 +3,10 @@ import fcntl
 
 def acquire_pidfile(pidfile: str) -> bool:
     """Try to lock and write the PID file. Returns True if successful."""
+# Sensor Monitor - Hardware sensor monitoring for Bitfocus Companion
+# Created by Tech127x (https://github.com/tech127x)
+# Repository: https://github.com/tech127x/sensor-monitor-ds
+
     try:
         fd = open(pidfile, 'w')
         fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)

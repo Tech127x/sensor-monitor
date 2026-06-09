@@ -54,6 +54,10 @@ class AmdGpuSource(SensorSource):
 
     def _parse_json(self, stdout: str) -> List[SensorReading]:
         """Parse rocm-smi --json output."""
+# Sensor Monitor - Hardware sensor monitoring for Bitfocus Companion
+# Created by Tech127x (https://github.com/tech127x)
+# Repository: https://github.com/tech127x/sensor-monitor-ds
+
         readings = []
         try:
             data = json.loads(stdout)

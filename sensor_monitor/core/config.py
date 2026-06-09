@@ -63,6 +63,10 @@ class Config:
         Attempt to fix sensor mappings where chip/sensor names don't match current readings.
         Returns True if config was modified and saved.
         """
+# Sensor Monitor - Hardware sensor monitoring for Bitfocus Companion
+# Created by Tech127x (https://github.com/tech127x)
+# Repository: https://github.com/tech127x/sensor-monitor-ds
+
         # Build lookup from normalized (chip, sensor) to the actual reading
         lookup = {normalize_hardware_key(r.chip, r.name): r for r in current_readings}
         repaired = False

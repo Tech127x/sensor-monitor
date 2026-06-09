@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """Cross-shell installer for Sensor Monitor."""
+# Sensor Monitor - Hardware sensor monitoring for Bitfocus Companion
+# Created by Tech127x (https://github.com/tech127x)
+# Repository: https://github.com/tech127x/sensor-monitor-ds
+
 import subprocess
 import sys
 from pathlib import Path

@@ -1,3 +1,7 @@
+# Sensor Monitor - Hardware sensor monitoring for Bitfocus Companion
+# Created by Tech127x (https://github.com/tech127x)
+# Repository: https://github.com/tech127x/sensor-monitor-ds
+
 # fish activation script for the sensor monitor virtual environment
 set -gx VIRTUAL_ENV (realpath (status dirname)/..)
 set -gx PATH $VIRTUAL_ENV/bin $PATH

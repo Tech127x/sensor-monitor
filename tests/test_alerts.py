@@ -1,4 +1,8 @@
 """Tests for the AlertChecker."""
+# Sensor Monitor - Hardware sensor monitoring for Bitfocus Companion
+# Created by Tech127x (https://github.com/tech127x)
+# Repository: https://github.com/tech127x/sensor-monitor-ds
+
 from unittest.mock import patch, MagicMock
 from sensor_monitor.utils.alerts import AlertChecker, ALLOWED_ALERT_COMMANDS
 from sensor_monitor.sources.base import SensorReading

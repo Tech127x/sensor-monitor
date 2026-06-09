@@ -1,4 +1,8 @@
 """Tests for the SensorMonitor class."""
+# Sensor Monitor - Hardware sensor monitoring for Bitfocus Companion
+# Created by Tech127x (https://github.com/tech127x)
+# Repository: https://github.com/tech127x/sensor-monitor-ds
+
 from unittest.mock import patch, MagicMock
 from sensor_monitor.core.monitor import SensorMonitor
 from sensor_monitor.sources.base import SensorReading

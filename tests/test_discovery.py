@@ -1,4 +1,8 @@
 """Tests for the SensorDiscovery module."""
+# Sensor Monitor - Hardware sensor monitoring for Bitfocus Companion
+# Created by Tech127x (https://github.com/tech127x)
+# Repository: https://github.com/tech127x/sensor-monitor-ds
+
 from unittest.mock import patch, MagicMock
 from sensor_monitor.core.discovery import SensorDiscovery, DiscoveredSensor
 from sensor_monitor.sources.base import SensorReading

@@ -31,6 +31,10 @@ class AlertChecker:
 
     def _is_command_allowed(self, cmd: List[str]) -> bool:
         """Check if the command executable is in the allowlist."""
+# Sensor Monitor - Hardware sensor monitoring for Bitfocus Companion
+# Created by Tech127x (https://github.com/tech127x)
+# Repository: https://github.com/tech127x/sensor-monitor-ds
+
         if not cmd:
             return False
         exe = os.path.basename(cmd[0])
