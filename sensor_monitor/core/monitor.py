@@ -131,39 +131,14 @@ class SensorMonitor:
                 continue
             # Auto-repair chip name if it changed (common for USB HID devices after reboot)
             if mapping["chip"] != reading.chip or mapping["sensor"] != reading.name:
-                old_key = normalize_hardware_key(mapping["chip"], mapping["sensor"])
                 self.logger.info(
-                    f"Auto-repaired mapping: {mapping['chip']}/{mapping['sensor']} -> {reading.chip}/{reading.name}"
+                    f"Auto-repaired mapping (in-memory): {mapping['chip']}/{mapping['sensor']} -> {reading.chip}/{reading.name}"
                 )
                 mapping["chip"] = reading.chip
                 mapping["sensor"] = reading.name
-                # Persist the repair to disk so the TUI picks it up too
-                import yaml
-
-                try:
-                    with open(self.config.config_file, "r") as f:
-                        raw = yaml.safe_load(f) or {}
-                    if "sensors" in raw:
-                        for sensor_entry in raw["sensors"]:
-                            if isinstance(sensor_entry, dict):
-                                ks = normalize_hardware_key(
-                                    sensor_entry.get("chip", ""),
-                                    sensor_entry.get("sensor", ""),
-                                )
-                                if ks[0] and ks[1] and ks == old_key:
-                                    sensor_entry["chip"] = reading.chip
-                                    sensor_entry["sensor"] = reading.name
-                                    break
-                        with open(self.config.config_file, "w") as f:
-                            yaml.dump(
-                                raw,
-                                f,
-                                default_flow_style=False,
-                                sort_keys=False,
-                                allow_unicode=True,
-                            )
-                except Exception as e:
-                    self.logger.error(f"Failed to persist auto-repaired config: {e}")
+                # Config file is NOT updated here to avoid corrupting entries.
+                # Run 'sensor-discovery-tui', edit the sensor, and Save & Reload
+                # to persist the repair to disk.
 
             value = reading.value
             if "divide_by" in mapping and mapping["divide_by"]:

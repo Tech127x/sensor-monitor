@@ -4,7 +4,6 @@
 # Created by Tech127x (https://github.com/tech127x)
 # Repository: https://github.com/tech127x/sensor-monitor-ds
 
-
 from __future__ import annotations
 
 import logging
@@ -353,6 +352,12 @@ class SensorDiscoveryTui(App[None]):
         self._config_var_map = self.discovery.load_config_variable_names(
             self.config_file
         )
+        # Build a sensor-name lookup for config entries when exact chip match fails
+        # (USB HID device paths can change after reboot)
+        _sensor_fallback = {}
+        for (ck, sk), vn in self._config_var_map.items():
+            prefix = ck.split("-")[0] if "-" in ck else ck
+            _sensor_fallback[(prefix, sk)] = (ck, sk, vn)
         self._update_loading_message("Building display...")
         self.states = []
         for i, s in enumerate(flat):
@@ -361,6 +366,23 @@ class SensorDiscoveryTui(App[None]):
             div = self._config_divide_map.get(key)
             unit = self._config_unit_map.get(key)
             var = self._config_var_map.get(key, defaults[i])
+            # If not found by exact chip match, try sensor name + chip prefix fallback
+            if var == defaults[i]:
+                prefix = (
+                    s.chip.split("-")[0].strip().lower()
+                    if "-" in s.chip
+                    else s.chip.strip().lower()
+                )
+                sensor_s = s.sensor_group.strip().lower()
+                fallback_key = (prefix, sensor_s)
+                if fallback_key in _sensor_fallback:
+                    ck, sk, vn = _sensor_fallback[fallback_key]
+                    var = vn
+                    in_c = True
+                    if div is None:
+                        div = self._config_divide_map.get((ck, sk))
+                    if unit is None:
+                        unit = self._config_unit_map.get((ck, sk))
             st = RowState(i + 1, s, defaults[i], in_c, var, div, unit)
             if in_c and unit is None:
                 st.unit_cleared = True
