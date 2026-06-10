@@ -875,9 +875,17 @@ class SensorDiscoveryTui(App[None]):
 
     def _reload_daemon(self):
         import subprocess
+        import sys
 
         subprocess.run(
-            ["sensor-monitor", "-c", self.config_file, "reload"],
+            [
+                sys.executable,
+                "-m",
+                "sensor_monitor.cli.main",
+                "-r",
+                "-c",
+                self.config_file,
+            ],
             capture_output=True,
             text=True,
         )
