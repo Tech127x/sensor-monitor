@@ -111,7 +111,7 @@ class SensorDiscoveryTui(App[None]):
     #loading_subtitle { width: 100%; text-align: center; color: $text-muted; text-style: italic; margin-bottom: 1; }
     #loading_dots { width: 100%; text-align: center; color: $accent; text-style: bold; }
     #detail { height: auto; margin: 1 1; border: solid $primary; padding: 1; background: $panel; }
-    #detail_content { layout: horizontal; height: 17; }
+    #detail_content { layout: horizontal; height: 17; margin-bottom: 0; }
     #info_panel { width: 50%; padding-right: 2; }
     #edit_panel { width: 50%; }
     .field-row { height: 3; margin-bottom: 1; }
@@ -119,8 +119,10 @@ class SensorDiscoveryTui(App[None]):
     .field-input { width: 1fr; max-width: 30; }
     #btn_row { height: 3; margin-top: 0; align-horizontal: left; }
     #btn_row Button { margin-right: 1; min-height: 3; padding: 0 1; }
+    #btn_degree { min-width: 3; min-height: 3; padding: 0; }
     #meta { height: 12; color: $text; background: $surface; padding: 1 1; }
     #hints { margin-top: 0; margin-bottom: 1; color: $text-disabled; text-style: italic; }
+    #daemon_status { margin-top: -2; margin-bottom: 1; padding: 0; color: $text-muted; }
     """
 
     BINDINGS = [
@@ -281,8 +283,15 @@ class SensorDiscoveryTui(App[None]):
                                 classes="field-input",
                                 disabled=True,
                             )
+                            yield Button(
+                                "°",
+                                id="btn_degree",
+                                variant="default",
+                                disabled=True,
+                            )
+                yield Static("", id="daemon_status")
                 yield Static(
-                    "Click [b]Enabled[/b] to toggle. Edit fields, then [b]Save & Reload[/b].",
+                    "[white]Click [b]Enabled[/b] to toggle. Edit fields, then [/][#ff9900][b]Save & Reload[/b][/]",
                     id="hints",
                 )
                 with Horizontal(id="btn_row"):
@@ -393,7 +402,8 @@ class SensorDiscoveryTui(App[None]):
         self.query_one("#var_in").disabled = False
         self.query_one("#divide_in").disabled = False
         self.query_one("#unit_in").disabled = False
-        for btn_id in ["btn_reset", "btn_save", "btn_save_reload"]:
+        self.query_one("#btn_degree").disabled = False
+        for btn_id in ["btn_reset", "btn_degree", "btn_save", "btn_save_reload"]:
             self.query_one(f"#{btn_id}").disabled = False
         for btn_id in [
             "btn_reset",
@@ -410,6 +420,11 @@ class SensorDiscoveryTui(App[None]):
         self.query_one("#tbl").focus()
         if self.display_order:
             self._sync_detail_from_idx(self.display_order[0])
+        # Show daemon status
+        try:
+            self.query_one("#daemon_status", Static).update(self._check_daemon_status())
+        except Exception:
+            pass
 
     def _update_loading_message(self, message: str):
         try:
@@ -674,7 +689,17 @@ class SensorDiscoveryTui(App[None]):
             return
         bid = event.button.id
         st = self.states[self._active_idx]
-        if bid == "btn_reset":
+        if bid == "btn_degree":
+            unit_in = self.query_one("#unit_in", Input)
+            current = unit_in.value
+            new_val = current + "°"
+            unit_in.value = new_val
+            unit_in.focus()
+            st.custom_unit = new_val
+            st.unit_cleared = False
+            self._refresh_row(self._active_idx)
+            self._refresh_meta_text()
+        elif bid == "btn_reset":
             st.variable = st.default_var
             st.divide_by = None
             st.custom_unit = None
@@ -873,7 +898,32 @@ class SensorDiscoveryTui(App[None]):
         self._reorder_table()
         self._refresh_meta_text()
 
+    def _check_daemon_status(self) -> str:
+        import os
+
+        pidfile = os.path.join(
+            os.path.dirname(os.path.abspath(self.config_file)), "sensor_monitor.pid"
+        )
+        try:
+            with open(pidfile) as f:
+                pid = int(f.read().strip())
+            os.kill(pid, 0)
+            return "[white]Daemon status:[/] [#66ff66]running (PID {})[/]".format(pid)
+        except (FileNotFoundError, ValueError, ProcessLookupError, OSError):
+            return "[white]Daemon status:[/] [#ff4444]stopped[/]"
+
     def _reload_daemon(self):
+        # Show reloading feedback immediately
+        try:
+            self.query_one("#daemon_status", Static).update(
+                "[white]Daemon status:[/] [#4488ff]reloading, please wait[/]"
+            )
+        except Exception:
+            pass
+        self.run_worker(self._do_reload_daemon(), thread=True)
+
+    async def _do_reload_daemon(self):
+        import asyncio
         import subprocess
         import sys
 
@@ -889,6 +939,11 @@ class SensorDiscoveryTui(App[None]):
             capture_output=True,
             text=True,
         )
+
+        # Wait 5 seconds for the daemon to settle, then check status
+        await asyncio.sleep(5)
+        status = self._check_daemon_status()
+        self.call_from_thread(self.query_one("#daemon_status", Static).update, status)
 
     def _update_sort_headers(self):
         table = self.query_one("#tbl", ClickableDataTable)
