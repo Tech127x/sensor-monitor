@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sensor_monitor"
-version = "2.0.0"
+version = "1.0.29"
 description = "Monitor system sensors and push to Bitfocus Companion custom variables"
 readme = "README.md"
 authors = [{name = "Sensor Monitor Team"}]
@@ -20,7 +20,7 @@ dependencies = [
     "requests>=2.25",
 ]
 [project.optional-dependencies]
-sensors = ["libsensors>=0.0.4"]
+sensors = ["libsensors>=0.0.5"]
 dev = ["pytest>=7.0", "pytest-cov", "black", "mypy"]
 
 [project.scripts]

@@ -15,7 +15,6 @@ I am very actively working on this project. If you give it a try, please send me
 
 
 
-
 Real-time hardware monitoring at your fingertips — finally, sensor data that just works.
 
 You're deep in a render, a game, or overclocking experiment. Your CPU is cooking, your GPU fans are screaming, and you have no idea what's actually happening inside your case. You could open a terminal and run `sensors`, squint at the output, and try to remember which `temp1` is which. Or you could glance at your Stream Deck and see everything — CPU temp, coolant temp, fan speeds, voltages — updating live, with friendly names you actually understand.

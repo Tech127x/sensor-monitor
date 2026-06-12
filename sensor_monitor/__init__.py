@@ -3,5 +3,4 @@
 # Created by Tech127x (https://github.com/tech127x)
 # Repository: https://github.com/tech127x/sensor-monitor-ds
 
-
-__version__ = "2.0.0"
+__version__ = "1.0.29"
