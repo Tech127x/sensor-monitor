@@ -117,17 +117,9 @@ class Config:
                     logging.info(
                         f"Repaired sensor mapping: {key} -> {normalize_hardware_key(matches[0].chip, matches[0].name)}"
                     )
-        if repaired:
-            # Write back the repaired config
-            with open(self.config_file, "w") as f:
-                yaml.dump(
-                    self.config,
-                    f,
-                    default_flow_style=False,
-                    sort_keys=False,
-                    allow_unicode=True,
-                )
-            logging.info("Config file automatically repaired and saved.")
+        # Config file is NOT written here to avoid silent mutations.
+        # Run 'sensor-discovery-tui', edit the sensor, and Save & Reload
+        # to persist any repairs to disk.
         return repaired
 
     @property
