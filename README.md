@@ -2,12 +2,12 @@
    - Bitfocus Companion BETA >= Companion: v5.0.0+9451 main-28ba9a55a8  
    - OS: Linux (v7.0.11-1-cachyos; x64)  
 
-I am very actively working on this project. If you give it a try, please send me feedback! The more I know from all of you, the better it will become!  I have made many improvements in the last couple days so make sure you're using the latest version and check frequently for updates. Thanks!
+I am very actively working on this project. If you give it a try, please send me feedback! The more I know from all of you, the better it will become!  I have made many improvements in the last couple days so make sure you're using the latest version and check frequently for [updates](https://github.com/Tech127x/sensor-monitor#-updating). Thanks!
 
 # 🌡️ Sensor Monitor for Bitfocus Companion
 
 <p align="center">
-  <img src="docs/images/screenshot_1.png" alt="Sensor Monitor TUI">  
+  <img src="docs/images/screenshot_1.png" alt="Sensor Monitor in BF Companion">  
   <br>  
   <sup><a href="https://www.flaticon.com/free-icons/hardware">Hardware icons created by Muhammad Ali - Flaticon</a></sup>
 </p>
@@ -119,6 +119,11 @@ All values update every second — no manual refreshing.
 
 
 ## 🔧 Configuration — No Text Editors Needed
+
+<p align="center">
+  <img src="docs/images/screenshot_2_60.png" alt="Sensor Monitor TUI">
+</p>
+
 
 Run the interactive TUI:
 
