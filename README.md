@@ -12,7 +12,9 @@ You're deep in a render, a game, or overclocking experiment. Your CPU is cookin
 
 Sensor Monitor fixes all of this. It discovers every sensor in your system (CPU, GPU, motherboard, NVMe drives, liquid coolers, fan controllers — yes, even that obscure Aquacomputer High Flow Next), pushes their values to Bitfocus Companion custom variables, and lets you build beautiful, informative dashboards on your Stream Deck. All with zero manual config file editing — just click what you want, and it's done.
 
-![](docs/images/screenshot_1.png)  
+<p align="center">
+  <img src="docs/images/screenshot_1.png" alt="Sensor Monitor TUI">
+</p>
 
 
 <sup>[Hardware icons created by Muhammad Ali - Flaticon](https://www.flaticon.com/free-icons/hardware)</sup>
